@@ -1,0 +1,5 @@
+*.log
+**/obj/
+**/inst/
+**/run/
+*.swp

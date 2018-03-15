@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# gcc-shenango.bldconf - configuration file for PARSEC
+
+# pthreads configuration is sufficient
+source ${PARSECDIR}/pkgs/apps/x264/parsec/gcc-pthreads.bldconf
+

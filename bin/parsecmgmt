@@ -266,7 +266,7 @@ function process_args {
   default_inputsize="test"
   default_nthreads="1"
   default_submit="time"
-
+  default_kthreads="1"
   # Usage
   usage="\
 Usage: $me -a ACTION [OPTION]...
@@ -283,6 +283,7 @@ Options:
                      benchmarks.
     -i INPUT         The input to use to run the benchmarks. Default: '$default_inputsize'
     -n THREADS       The minimum number of threads to use. Default: '$default_nthreads'
+    -K KTHREADS      The minimum number of kthreads to allocate (relevant for shenango). Default: "$default_kthreads"
     -s SUBMIT        Command to use to submit the benchmark for execution.
                      Default: '$default_submit'
     -x EXTENSION     Extension to append to platform descriptor string.
@@ -377,6 +378,7 @@ Examples (3) [NEW: SPLASH-2 Suite and SPLASH-2x Suite]:
   inputsize=""
   netmode=""
   nthreads=""
+  kthreads=""
   userthreads=""
   rxthreads=""
   submit=""
@@ -438,6 +440,14 @@ Examples (3) [NEW: SPLASH-2 Suite and SPLASH-2x Suite]:
         fi
         need_arg_for="-n"
         parsemode="NTHREADS";;
+      "-K" )
+        if [ ! -z "${need_arg_for}" ]; then
+          echo "${oprefix} Error: ${parsemode} expected between '${need_arg_for}' and '-K'"
+          echo "${usage}"
+          exit 1
+        fi
+        need_arg_for="-K"
+        parsemode="KTHREADS";;
       "-t" )
         if [ ! -z "${need_arg_for}" ]; then
           echo "${oprefix} Error: ${parsemode} expected between '${need_arg_for}' and '-t'"
@@ -583,6 +593,16 @@ Examples (3) [NEW: SPLASH-2 Suite and SPLASH-2x Suite]:
               echo "${usage}"
               exit 1
             fi;;
+          "KTHREADS" )
+            parsemode="none"
+            declare -i nthreads
+            kthreads="${arg}"
+            # Note: This check also filters out strings (nthreads==0 in that case)
+            if [ "${kthreads}" -lt "1" ]; then
+              echo "${oprefix} Error: Illegal number of threads: '${arg}'."
+              echo "${usage}"
+              exit 1
+            fi;;
           "USERTHREADS" )
             parsemode="none"
             userthreads="${arg}"
@@ -684,6 +704,12 @@ Examples (3) [NEW: SPLASH-2 Suite and SPLASH-2x Suite]:
     NTHREADS="${nthreads}"
   fi
 
+  if [ -z "${kthreads}" ]; then
+    # Use default value
+    KTHREADS="${default_kthreads}"
+  else
+    KTHREADS="${kthreads}"
+  fi
   # Set rundir
   if [ -z "${rundir}" ]; then
     # Use default value
