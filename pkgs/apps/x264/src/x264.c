@@ -123,7 +123,11 @@ int main( int argc, char **argv )
     _setmode(_fileno(stdout), _O_BINARY);
 #endif
 
-    x264_param_default( &param );
+    while (1) {
+        mux_buffer = NULL;
+        mux_buffer_size = 0;
+	optind = 0;
+	x264_param_default( &param );
 
     /* Parse command line */
     if( Parse( argc, argv, &param, &opt ) < 0 )
@@ -133,7 +137,7 @@ int main( int argc, char **argv )
     signal( SIGINT, SigIntHandler );
 
     ret = Encode( &param, &opt );
-
+    }
 #ifdef PTW32_STATIC_LIB
     pthread_win32_thread_detach_np();
     pthread_win32_process_detach_np();
