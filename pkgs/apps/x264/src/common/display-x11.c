@@ -164,7 +164,7 @@ void disp_gray(int num, char *data, int width, int height, int stride, const uns
 		ximage->bitmap_bit_order = MSBFirst;
 	}
 	pixelsize = dpy_depth>8 ? sizeof(int) : sizeof(unsigned char);
-	image = malloc(width * height * pixelsize);
+	image = malloc_np(width * height * pixelsize);
 	disp_chkerror(!image, "malloc failed");
 	for (y=0; y<height; y++) for (x=0; x<width; x++) {
 		memset(&image[(width*y + x)*pixelsize], data[y*stride+x], pixelsize);
@@ -188,7 +188,7 @@ void disp_gray(int num, char *data, int width, int height, int stride, const uns
 void disp_gray_zoom(int num, char *data, int width, int height, int stride, const unsigned char *tit, int zoom) {
 	unsigned char *dataz;
 	int y,x,y0,x0;
-	dataz = malloc(width*zoom * height*zoom);
+	dataz = malloc_np(width*zoom * height*zoom);
 	disp_chkerror(!dataz, "malloc");
 	for (y=0; y<height; y++) for (x=0; x<width; x++) {
 		for (y0=0; y0<zoom; y0++) for (x0=0; x0<zoom; x0++) {
@@ -196,7 +196,7 @@ void disp_gray_zoom(int num, char *data, int width, int height, int stride, cons
 		}
 	}
 	disp_gray(num, dataz, width*zoom, height*zoom, width*zoom, tit);
-	free(dataz);
+	free_np(dataz);
 }
 
 void disp_point(int num, int x1, int y1) {

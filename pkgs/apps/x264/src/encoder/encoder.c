@@ -2076,9 +2076,9 @@ void    x264_encoder_close  ( x264_t *h )
 
     /* param */
     if( h->param.rc.psz_stat_out )
-        free( h->param.rc.psz_stat_out );
+        free_np( h->param.rc.psz_stat_out );
     if( h->param.rc.psz_stat_in )
-        free( h->param.rc.psz_stat_in );
+        free_np( h->param.rc.psz_stat_in );
 
     x264_cqm_delete( h );
 
