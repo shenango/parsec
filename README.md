@@ -1,3 +1,28 @@
+SHENANGO PARSEC PORT
+==========================
+
+# Packages ported for shenango
+
+1) x264
+
+## Building/Running Steps
+1) Unpack the repo
+2) Acquire a copy of input_native.tar and place it in `<repodir>/pkgs/apps/x264/inputs/` 
+3) `export SHENANGODIR=<full path to shenango repo>`
+4) `cd bin`
+
+### Shenango:
+
+- `./parsecmgmt -a build -p x264 -c gcc-shenango`
+- `./parsecmgmt -a run -p x264 -c gcc-shenango -i native -n <number of runtime user threads> -K <number of runtime kthreads>`
+
+### Linux:
+
+- `./parsecmgmt -a build -p x264 -c gcc-pthreads`
+- `./parsecmgmt -a run -p x264 -c gcc-pthreads -i native -n <number of pthreads>`
+
+
+
 PARSEC Benchmark Suite 3.0
 ==========================
 
