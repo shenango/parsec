@@ -89,6 +89,7 @@
 
 #elif defined(SHENANGO)
 
+#include <base/cpu.h>
 #include <runtime/sync.h>
 #include <runtime/thread.h>
 #include <runtime/timer.h>
@@ -214,6 +215,8 @@ int shenango_thread_join(struct wgargs *wgargs, void **retval);
 #define free_np free
 #define realloc_np realloc
 #define memalign_np memalign
+#define preempt_enable()
+#define preempt_disable()
 
 #endif
 
