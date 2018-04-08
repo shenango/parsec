@@ -1336,6 +1336,10 @@ static int x264_slices_write( x264_t *h )
 #endif
 
     h->out.i_frame_size = i_frame_size;
+
+#ifdef SHENANGO
+    waitgroup_done(&h->thread_handle);
+#endif
     return 0;
 }
 
@@ -1584,7 +1588,13 @@ do_encode:
     /* Write frame */
     if( h->param.i_threads > 1 )
     {
+#ifndef SHENANGO
         x264_pthread_create( &h->thread_handle, NULL, (void*)x264_slices_write, h );
+#else
+        waitgroup_init(&h->thread_handle);
+        waitgroup_add(&h->thread_handle, 1);
+        thread_spawn(x264_slices_write, h);
+#endif
         h->b_thread_active = 1;
     }
     else
@@ -1704,7 +1714,11 @@ static void x264_encoder_frame_end( x264_t *h, x264_t *thread_current,
 
     if( h->b_thread_active )
     {
+#ifndef SHENANGO
         x264_pthread_join( h->thread_handle, NULL );
+#else
+        waitgroup_wait(&h->thread_handle);
+#endif
         h->b_thread_active = 0;
     }
     if( !h->out.i_nal )
@@ -1882,7 +1896,11 @@ void    x264_encoder_close  ( x264_t *h )
         // don't strictly have to wait for the other threads, but it's simpler than canceling them
         if( h->thread[i]->b_thread_active )
         {
+#ifndef SHENANGO
             x264_pthread_join( h->thread[i]->thread_handle, NULL );
+#else
+            waitgroup_wait(&h->thread[i]->thread_handle);
+#endif
             assert( h->thread[i]->fenc->i_reference_count == 1 );
             x264_frame_delete( h->thread[i]->fenc );
         }

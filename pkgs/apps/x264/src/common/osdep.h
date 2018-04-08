@@ -135,16 +135,9 @@ static inline void *memalign_np(size_t alignment, size_t size)
 }
 #endif
 
-struct wgargs;
-
-void run_and_wgdone(void *arg);
-int shenango_thread_create(struct wgargs **wgargs, void *attr, thread_fn_t fn,
-                                  void *arg);
-int shenango_thread_join(struct wgargs *wgargs, void **retval);
-
-#define x264_pthread_t              struct wgargs*
-#define x264_pthread_create         shenango_thread_create
-#define x264_pthread_join           shenango_thread_join
+#define x264_pthread_t              waitgroup_t
+#define x264_pthread_create         {assert(0);}
+#define x264_pthread_join           {assert(0);}
 
 
 #define x264_pthread_mutex_t         mutex_t

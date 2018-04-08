@@ -509,6 +509,9 @@ int get_frame_total_thread( hnd_t handle )
 static void read_frame_thread_int( thread_input_arg_t *i )
 {
     i->status = i->h->p_read_frame( i->pic, i->h->p_handle, i->i_frame );
+#ifdef SHENANGO
+    waitgroup_done(&i->h->tid);
+#endif
 }
 
 int read_frame_thread( x264_picture_t *p_pic, hnd_t handle, int i_frame )
@@ -519,7 +522,11 @@ int read_frame_thread( x264_picture_t *p_pic, hnd_t handle, int i_frame )
 
     if( h->next_frame >= 0 )
     {
+#ifndef SHENANGO
         x264_pthread_join( h->tid, &stuff );
+#else
+        waitgroup_wait(&h->tid);
+#endif
         ret |= h->next_args->status;
         h->in_progress = 0;
     }
@@ -538,7 +545,13 @@ int read_frame_thread( x264_picture_t *p_pic, hnd_t handle, int i_frame )
         h->next_frame =
         h->next_args->i_frame = i_frame+1;
         h->next_args->pic = &h->pic;
+#ifndef SHENANGO
         x264_pthread_create( &h->tid, NULL, (void*)read_frame_thread_int, h->next_args );
+#else
+        waitgroup_init(&h->tid);
+        waitgroup_add(&h->tid, 1);
+        thread_spawn(read_frame_thread_int, h->next_args);
+#endif
         h->in_progress = 1;
     }
     else
@@ -553,7 +566,11 @@ int close_file_thread( hnd_t handle )
     h->p_close_infile( h->p_handle );
     x264_picture_clean( &h->pic );
     if( h->in_progress )
+#ifndef SHENANGO
         x264_pthread_join( h->tid, NULL );
+#else
+        waitgroup_wait(&h->tid);
+#endif
     free_np( h->next_args );
     free_np( h );
     return 0;
