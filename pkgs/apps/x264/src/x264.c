@@ -838,8 +838,9 @@ static int  Encode( x264_param_t *param, cli_opt_t *opt )
         && param->i_frame_total > 0 )
         i_frame_total = param->i_frame_total;
     param->i_frame_total = i_frame_total;
-    i_update_interval = i_frame_total ? x264_clip3( i_frame_total / 1000, 1, 10 ) : 10;
 
+    i_update_interval = 5 * 60; // every 5 seconds assuming 60fps?
+//    i_update_interval = i_frame_total ? x264_clip3( i_frame_total / 10, 1, 10 ) : 10;
     if( ( h = x264_encoder_open( param ) ) == NULL )
     {
         fprintf( stderr, "x264 [error]: x264_encoder_open failed\n" );
