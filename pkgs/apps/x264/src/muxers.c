@@ -576,9 +576,9 @@ int set_param_bsf( hnd_t handle, x264_param_t *p_param )
 
 int write_nalu_bsf( hnd_t handle, uint8_t *p_nalu, int i_size )
 {
-    if (fwrite(p_nalu, i_size, 1, (FILE *)handle) > 0)
+    //if (fwrite(p_nalu, i_size, 1, (FILE *)handle) > 0)
         return i_size;
-    return -1;
+    //return -1;
 }
 
 int set_eop_bsf( hnd_t handle,  x264_picture_t *p_picture )
