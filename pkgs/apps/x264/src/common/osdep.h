@@ -98,7 +98,7 @@
 #define assert(x) BUG_ON(!(x))
 
 #include <stdlib.h>
-
+#include <malloc.h>
 static inline void *malloc_np(size_t len)
 {
     void *ret;
