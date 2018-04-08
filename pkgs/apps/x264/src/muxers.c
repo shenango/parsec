@@ -123,17 +123,42 @@ int close_file_yuv(hnd_t handle)
 
 /* YUV4MPEG2 raw 420 yuv file operation */
 typedef struct {
-    FILE *fh;
     int width, height;
     int next_frame;
     int seq_header_len, frame_header_len;
     int frame_size;
 } y4m_input_t;
 
+
+static char *fullbuffer;
+static size_t fullbuffer_size;
+static size_t seekspot;
+
+static ssize_t fake_fread(void *dbuf, size_t nbytes)
+{
+    ssize_t tocopy = fullbuffer_size - seekspot;
+    if (tocopy < 0)
+        tocopy = 0;
+    else if (nbytes < tocopy)
+        tocopy = nbytes;
+    memcpy(dbuf, fullbuffer + seekspot, tocopy);
+    seekspot += tocopy;
+    return tocopy;
+}
+
+static char fake_fgetc() {
+    char c;
+    fake_fread(&c, 1);
+    return c;
+}
+
+
 #define Y4M_MAGIC "YUV4MPEG2"
 #define MAX_YUV4_HEADER 80
 #define Y4M_FRAME_MAGIC "FRAME"
 #define MAX_FRAME_HEADER 80
+#include <sys/stat.h>
+
 
 int open_file_y4m( char *psz_filename, hnd_t *p_handle, x264_param_t *p_param )
 {
@@ -143,21 +168,46 @@ int open_file_y4m( char *psz_filename, hnd_t *p_handle, x264_param_t *p_param )
     char *tokstart, *tokend, *header_end;
     y4m_input_t *h = malloc_np(sizeof(y4m_input_t));
 
+    seekspot = 0;
+
     h->next_frame = 0;
 
-    if( !strcmp(psz_filename, "-") )
-        h->fh = stdin;
-    else
-        h->fh = fopen(psz_filename, "rb");
-    if( h->fh == NULL )
+    if( !strcmp(psz_filename, "-") ) {
+        fprintf(stderr, "Support for stdin is disabled\n");
         return -1;
+    }
+
+    static int already_loaded;
+    if (!already_loaded) {
+        FILE *fh;
+        struct stat filestat;
+        if (stat(psz_filename, &filestat) < 0) {
+            return -1;
+        }
+        fullbuffer_size = filestat.st_size;
+        fullbuffer = malloc_np(fullbuffer_size);
+        if (!fullbuffer) {
+            return -1;
+        }
+        fh = fopen(psz_filename, "rb");
+        if (fh == NULL) {
+            return -1;
+        }
+        if (fread(fullbuffer, 1, fullbuffer_size, fh) != fullbuffer_size) {
+            fprintf(stderr, "Could not preload buffer\n");
+            return -1;
+        }
+        fclose(fh);
+        already_loaded = 1;
+    }
+
 
     h->frame_header_len = strlen(Y4M_FRAME_MAGIC)+1;
 
     /* Read header */
     for( i=0; i<MAX_YUV4_HEADER; i++ )
     {
-        header[i] = fgetc(h->fh);
+        header[i] = fake_fgetc();
         if( header[i] == '\n' )
         {
             /* Add a space after last option. Makes parsing "444" vs
@@ -256,15 +306,9 @@ int get_frame_total_y4m( hnd_t handle )
 {
     y4m_input_t *h             = handle;
     int          i_frame_total = 0;
-    uint64_t     init_pos      = ftell(h->fh);
 
-    if( !fseek( h->fh, 0, SEEK_END ) )
-    {
-        uint64_t i_size = ftell( h->fh );
-        fseek( h->fh, init_pos, SEEK_SET );
-        i_frame_total = (int)((i_size - h->seq_header_len) /
-                              (3*(h->width*h->height)/2+h->frame_header_len));
-    }
+    i_frame_total = (int)((fullbuffer_size - h->seq_header_len) /
+                          (3*(h->width*h->height)/2+h->frame_header_len));
 
     return i_frame_total;
 }
@@ -278,13 +322,13 @@ int read_frame_y4m( x264_picture_t *p_pic, hnd_t handle, int i_frame )
 
     if( i_frame != h->next_frame )
     {
-        if (fseek(h->fh, (uint64_t)i_frame*(3*(h->width*h->height)/2+h->frame_header_len)
-                  + h->seq_header_len, SEEK_SET))
-            return -1;
+        seekspot = (uint64_t)i_frame*(3*(h->width*h->height)/2+h->frame_header_len)
+                  + h->seq_header_len;
     }
 
     /* Read frame header - without terminating '\n' */
-    if (fread(header, 1, slen, h->fh) != slen)
+    if (fake_fread(header, slen) != slen)
+    // if (fread(header, 1, slen, h->fh) != slen)
         return -1;
 
     header[slen] = 0;
@@ -296,7 +340,7 @@ int read_frame_y4m( x264_picture_t *p_pic, hnd_t handle, int i_frame )
     }
 
     /* Skip most of it */
-    while (i<MAX_FRAME_HEADER && fgetc(h->fh) != '\n')
+    while (i<MAX_FRAME_HEADER && fake_fgetc(h) != '\n')
         i++;
     if (i == MAX_FRAME_HEADER)
     {
@@ -305,9 +349,9 @@ int read_frame_y4m( x264_picture_t *p_pic, hnd_t handle, int i_frame )
     }
     h->frame_header_len = i+slen+1;
 
-    if( fread(p_pic->img.plane[0], 1, h->width*h->height, h->fh) <= 0
-        || fread(p_pic->img.plane[1], 1, h->width * h->height / 4, h->fh) <= 0
-        || fread(p_pic->img.plane[2], 1, h->width * h->height / 4, h->fh) <= 0)
+    if( fake_fread(p_pic->img.plane[0], h->width*h->height) <= 0
+        || fake_fread(p_pic->img.plane[1], h->width * h->height / 4) <= 0
+        || fake_fread(p_pic->img.plane[2], h->width * h->height / 4) <= 0)
         return -1;
 
     h->next_frame = i_frame+1;
@@ -318,9 +362,9 @@ int read_frame_y4m( x264_picture_t *p_pic, hnd_t handle, int i_frame )
 int close_file_y4m(hnd_t handle)
 {
     y4m_input_t *h = handle;
-    if( !h || !h->fh )
+    if( !h )
         return 0;
-    fclose( h->fh );
+
     free_np( h );
     return 0;
 }
