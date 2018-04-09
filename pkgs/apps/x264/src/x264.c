@@ -123,24 +123,14 @@ int main( int argc, char **argv )
     _setmode(_fileno(stdout), _O_BINARY);
 #endif
 
-    while (1) {
-
-    b_ctrl_c = b_exit_on_ctrl_c = 0;
-    mux_buffer = NULL;
-    mux_buffer_size = 0;
-    optind = 0;
     x264_param_default( &param );
 
     /* Parse command line */
     if( Parse( argc, argv, &param, &opt ) < 0 )
         return -1;
 
-    /* Control-C handler */
-    signal( SIGINT, SigIntHandler );
-
     ret = Encode( &param, &opt );
 
-    }
 #ifdef PTW32_STATIC_LIB
     pthread_win32_thread_detach_np();
     pthread_win32_process_detach_np();
@@ -839,8 +829,7 @@ static int  Encode( x264_param_t *param, cli_opt_t *opt )
         i_frame_total = param->i_frame_total;
     param->i_frame_total = i_frame_total;
 
-    i_update_interval = 5 * 60; // every 5 seconds assuming 60fps?
-//    i_update_interval = i_frame_total ? x264_clip3( i_frame_total / 10, 1, 10 ) : 10;
+    i_update_interval = i_frame_total ? x264_clip3( i_frame_total / 10, 1, 10 ) : 10;
     if( ( h = x264_encoder_open( param ) ) == NULL )
     {
         fprintf( stderr, "x264 [error]: x264_encoder_open failed\n" );
@@ -859,11 +848,14 @@ static int  Encode( x264_param_t *param, cli_opt_t *opt )
     /* Create a new pic */
     x264_picture_alloc( &pic, X264_CSP_I420, param->i_width, param->i_height );
 
+    while (1) {
+
     i_start = x264_mdate();
 
 #ifdef ENABLE_PARSEC_HOOKS
     __parsec_roi_begin();
 #endif
+
 
     /* Encode frames */
     for( i_frame = 0, i_file = 0; b_ctrl_c == 0 && (i_frame < i_frame_total || i_frame_total == 0); )
@@ -914,11 +906,24 @@ static int  Encode( x264_param_t *param, cli_opt_t *opt )
         i_frame_size = Encode_frame( h, opt->hout, NULL );
     } while( i_frame_size );
 
+
 #ifdef ENABLE_PARSEC_HOOKS
     __parsec_roi_end();
 #endif
 
     i_end = x264_mdate();
+
+        if( i_frame > 0 )
+    {
+        double fps = (double)i_frame * (double)1000000 /
+                     (double)( i_end - i_start );
+
+        fprintf( stderr, "encoded %d frames, %.2f fps, %.2f kb/s\n", i_frame, fps,
+                 (double) i_file * 8 * param->i_fps_num /
+                 ( (double) param->i_fps_den * i_frame * 1000 ) );
+    }
+
+    }
     x264_picture_clean( &pic );
     /* Erase progress indicator before printing encoding stats. */
     if( opt->b_progress )
