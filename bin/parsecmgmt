@@ -1227,6 +1227,11 @@ function run_benchmark {
     fi
   fi
 
+  if [[ "${build}" == "gcc-shenango" ]]; then
+    sed "s/runtime_kthreads .*/runtime_kthreads ${KTHREADS}/g" ${PARSECDIR}/config/shenango.cfg > ${bmrundir}/shenango.cfg
+    run_args="${bmrundir}/shenango.cfg ${run_args}"
+  fi
+
   # Execute
   local bmexec_args=${run_args}
   if [ ! -z ${netmode} ]; then

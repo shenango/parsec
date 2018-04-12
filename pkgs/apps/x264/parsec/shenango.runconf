@@ -1,6 +1,0 @@
-#!/bin/bash
-
-if [[ "${build}" == "gcc-shenango" ]]; then
-    sed -i "s/runtime_kthreads .*/runtime_kthreads ${KTHREADS}/g" ${bmparsecdir}/shenango.cfg
-    run_args="${bmparsecdir}/shenango.cfg ${run_args}"
-fi
