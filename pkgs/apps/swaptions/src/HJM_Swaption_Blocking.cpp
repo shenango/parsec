@@ -136,12 +136,12 @@ int HJM_Swaption_Blocking(FTYPE *pdSwaptionPrice, //Output vector that will stor
   //generating forward curve at t=0 from supplied yield curve
   iSuccess = HJM_Yield_to_Forward(pdForward, iN, pdYield);
   if (iSuccess!=1)
-    return iSuccess;
+  goto clean_up;
   
   //computation of drifts from factor volatilities
   iSuccess = HJM_Drifts(pdTotalDrift, ppdDrifts, iN, iFactors, dYears, ppdFactors);
   if (iSuccess!=1)
-    return iSuccess;
+  goto clean_up;
   
   dSumSimSwaptionPrice = 0.0;
   dSumSquareSimSwaptionPrice = 0.0;
@@ -151,7 +151,7 @@ int HJM_Swaption_Blocking(FTYPE *pdSwaptionPrice, //Output vector that will stor
       //For each trial a new HJM Path is generated
       iSuccess = HJM_SimPath_Forward_Blocking(ppdHJMPath, iN, iFactors, dYears, pdForward, pdTotalDrift,ppdFactors, &iRndSeed, BLOCKSIZE); /* GC: 51% of the time goes here */
        if (iSuccess!=1)
-	return iSuccess;
+  goto clean_up;
       
       //now we compute the discount factor vector
 
@@ -163,7 +163,7 @@ int HJM_Swaption_Blocking(FTYPE *pdSwaptionPrice, //Output vector that will stor
       iSuccess = Discount_Factors_Blocking(pdPayoffDiscountFactors, iN, dYears, pdDiscountingRatePath, BLOCKSIZE); /* 15% of the time goes here */
 
      if (iSuccess!=1)
-	return iSuccess;
+  goto clean_up;
         
       //now we compute discount factors along the swap path
       for (i=0;i<=iSwapVectorLength-1;++i){
@@ -174,7 +174,7 @@ int HJM_Swaption_Blocking(FTYPE *pdSwaptionPrice, //Output vector that will stor
       }
       iSuccess = Discount_Factors_Blocking(pdSwapDiscountFactors, iSwapVectorLength, dSwapVectorYears, pdSwapRatePath, BLOCKSIZE);
       if (iSuccess!=1)
-	return iSuccess;
+  goto clean_up;
 
       
       // ========================
@@ -206,6 +206,24 @@ int HJM_Swaption_Blocking(FTYPE *pdSwaptionPrice, //Output vector that will stor
   pdSwaptionPrice[1] = dSimSwaptionStdError;
   
   iSuccess = 1;
+  goto clean_up;
+
+clean_up:
+
+  free_dvector(pdTotalDrift, 0, iN-2);
+  free_dvector(pdSwapPayoffs, 0, iSwapVectorLength - 1);
+
+  free_dmatrix(ppdDrifts, 0, iFactors-1, 0, iN-2);
+  free_dvector(pdSwapRatePath, 0, iSwapVectorLength*BLOCKSIZE - 1);
+
+  free_dvector(pdForward, 0, iN-1);
+  free_dvector(pdDiscountingRatePath, 0, iN*BLOCKSIZE-1);
+  free_dmatrix(ppdHJMPath, 0,iN-1,0,iN*BLOCKSIZE-1);    // **** per Trial data **** //
+
+  free_dvector(pdSwapDiscountFactors, 0, iSwapVectorLength*BLOCKSIZE - 1);
+  free_dvector(pdPayoffDiscountFactors, 0, iN*BLOCKSIZE-1);
+
   return iSuccess;
+
 }
 
