@@ -19,11 +19,12 @@
 
 #ifdef ENABLE_THREADS
 
+#include <chrono>
+#include <thread>
 
 #ifndef SHENANGO
 #include <pthread.h>
-#include <chrono>
-#include <thread>
+
 #define MAX_THREAD 1024
 #else
 
@@ -105,34 +106,22 @@ struct Worker {
 static uint64_t *count;
 
 static void *print_progress(void *arg) {
+  assert(count);
   uint64_t last_total = 0;
-
-#ifdef SHENANGO
-  uint64_t last_time = microtime();
-#else
   auto last_time = std::chrono::high_resolution_clock::now();
-#endif
 
   while (1) {
     uint64_t total = 0;
     for (int i = 0; i < nThreads; i++) total += count[i];
-#ifdef SHENANGO
-    auto now = microtime();
-    auto elapsedMicros = now - last_time;
-#else
     auto now = std::chrono::high_resolution_clock::now();
     auto elapsedMicros = std::chrono::duration_cast<std::chrono::microseconds>(now - last_time).count();
-#endif
 
     std::cerr << "Swaption per second: " << (total - last_total) / (elapsedMicros / 1000000.0) << std::endl;
     last_time = now;
     last_total = total;
 
-#ifdef SHENANGO
-    rt::Sleep(5 * rt::kSeconds);
-#else
     std::this_thread::sleep_for(std::chrono::seconds(5));
-#endif
+
   }
   return NULL;
 }
@@ -374,9 +363,11 @@ int main(int argc, char *argv[])
     });
   }
 
-  rt::Spawn([&](){
-    print_progress(NULL);
-  });
+  std::thread([&](){
+      print_progress(NULL);
+  }).detach();
+
+
 
   for (i = 0; i < nThreads; i++) {
     threads[i].Join();
@@ -388,8 +379,10 @@ int main(int argc, char *argv[])
           threadIDs[i] = i;
           pthread_create(&threads[i], &pthread_custom_attr, worker, &threadIDs[i]);
         }
-        pthread_t progress;
-        pthread_create(&progress, &pthread_custom_attr, print_progress, NULL);
+
+        std::thread([&](){
+            print_progress(NULL);
+        }).detach();
 
         for (i = 0; i < nThreads; i++) {
           pthread_join(threads[i], NULL);
