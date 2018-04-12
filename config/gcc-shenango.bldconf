@@ -9,6 +9,7 @@ fi
 
 source ${PARSECDIR}/config/gcc.bldconf
 
-LDFLAGS="-L${SHENANGODIR}/ -T ${SHENANGODIR}/base/base.ld -no-pie -lruntime -lnet -lbase ${LDFLAGS}"
+LDFLAGS="-L${SHENANGODIR}/ -T ${SHENANGODIR}/base/base.ld -no-pie ${LDFLAGS}"
+LIBS="${SHENANGODIR}/bindings/cc/librt++.a ${SHENANGODIR}/libruntime.a ${SHENANGODIR}/libnet.a ${SHENANGODIR}/libbase.a ${LIBS}"
 CFLAGS="-DSHENANGO -I${SHENANGODIR}/inc ${CFLAGS}"
-CXXFLAGS="-DSHENANGO -I${SHENANGODIR}/inc ${CXXFLAGS}"
+CXXFLAGS="-DSHENANGO -I${SHENANGODIR}/inc -I ${SHENANGODIR}/bindings/cc ${CXXFLAGS}"

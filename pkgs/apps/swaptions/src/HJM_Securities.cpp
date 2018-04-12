@@ -15,8 +15,27 @@
 #include "HJM_type.h"
 
 #ifdef ENABLE_THREADS
+
+
+#ifndef SHENANGO
 #include <pthread.h>
+#include <chrono>
+#include <thread>
 #define MAX_THREAD 1024
+#else
+
+#include <vector>
+#include <thread.h>
+#include <timer.h>
+
+extern "C" {
+#include <base/log.h>
+#undef min
+#undef max
+}
+
+#define MAX_THREAD 102400
+#endif
 
 #ifdef TBB_VERSION
 #include "tbb/task_scheduler_init.h"
@@ -33,6 +52,7 @@ tbb::cache_aligned_allocator<parm> memory_parm;
 #ifdef ENABLE_PARSEC_HOOKS
 #include <hooks.h>
 #endif
+
 
 int NUM_TRIALS = DEFAULT_NUM_TRIALS;
 int nThreads = 1;
@@ -79,6 +99,40 @@ struct Worker {
 
 #endif //TBB_VERSION
 
+static uint64_t *count;
+
+static void *print_progress(void *arg) {
+  uint64_t last_total = 0;
+
+#ifdef SHENANGO
+  uint64_t last_time = microtime();
+#else
+  auto last_time = std::chrono::high_resolution_clock::now();
+#endif
+
+  while (1) {
+    uint64_t total = 0;
+    for (int i = 0; i < nThreads; i++) total += count[i];
+#ifdef SHENANGO
+    auto now = microtime();
+    auto elapsedMicros = now - last_time;
+#else
+    auto now = std::chrono::high_resolution_clock::now();
+    auto elapsedMicros = std::chrono::duration_cast<std::chrono::microseconds>(now - last_time).count();
+#endif
+
+    std::cerr << "Swaption per second: " << (total - last_total) / (elapsedMicros / 1000000.0) << std::endl;
+    last_time = now;
+    last_total = total;
+
+#ifdef SHENANGO
+    rt::Sleep(5 * rt::kSeconds);
+#else
+    std::this_thread::sleep_for(std::chrono::seconds(5));
+#endif
+  }
+  return NULL;
+}
 
 void * worker(void *arg){
   int tid = *((int *)arg);
@@ -100,17 +154,25 @@ void * worker(void *arg){
   if(tid == nThreads -1 )
     end = nSwaptions;
 
-  for(int i=beg; i < end; i++) {
-     int iSuccess = HJM_Swaption_Blocking(pdSwaptionPrice,  swaptions[i].dStrike, 
-                                       swaptions[i].dCompounding, swaptions[i].dMaturity, 
-                                       swaptions[i].dTenor, swaptions[i].dPaymentInterval,
-                                       swaptions[i].iN, swaptions[i].iFactors, swaptions[i].dYears, 
-                                       swaptions[i].pdYield, swaptions[i].ppdFactors,
-                                       swaption_seed+i, NUM_TRIALS, BLOCK_SIZE, 0);
-     assert(iSuccess == 1);
-     swaptions[i].dSimSwaptionMeanPrice = pdSwaptionPrice[0];
-     swaptions[i].dSimSwaptionStdError = pdSwaptionPrice[1];
-   }
+  while (1) {
+
+    for(int i=beg; i < end; i++) {
+       int iSuccess = HJM_Swaption_Blocking(pdSwaptionPrice,  swaptions[i].dStrike, 
+                                         swaptions[i].dCompounding, swaptions[i].dMaturity, 
+                                         swaptions[i].dTenor, swaptions[i].dPaymentInterval,
+                                         swaptions[i].iN, swaptions[i].iFactors, swaptions[i].dYears, 
+                                         swaptions[i].pdYield, swaptions[i].ppdFactors,
+                                         swaption_seed+i, NUM_TRIALS, BLOCK_SIZE, 0);
+       assert(iSuccess == 1);
+       swaptions[i].dSimSwaptionMeanPrice = pdSwaptionPrice[0];
+       swaptions[i].dSimSwaptionStdError = pdSwaptionPrice[1];  
+       count[tid]++;
+#ifdef SHENANGO
+       rt::Yield();
+#endif
+     }
+
+  }
 
    return NULL;
 }
@@ -130,7 +192,12 @@ void print_usage(char *name) {
 //For instance, if X/Y = 0.999 then (int) (X/Y) will equal 0 and not 1 (as (int) rounds down).
 //Adding 0.5 ensures that this does not happen. Therefore we use (int) (X/Y + 0.5); instead of (int) (X/Y);
 
+#ifdef SHENANGO
+int argc;
+int _main(char *argv[])
+#else
 int main(int argc, char *argv[])
+#endif
 {
 	int iSuccess = 0;
 	int i,j;
@@ -181,6 +248,8 @@ int main(int argc, char *argv[])
 
 #ifdef TBB_VERSION
 	tbb::task_scheduler_init init(nThreads);
+#elif SHENANGO
+
 #else
 	pthread_t      *threads;
 	pthread_attr_t  pthread_custom_attr;
@@ -251,6 +320,7 @@ int main(int argc, char *argv[])
 	  (parm *)memory_parm.allocate(sizeof(parm)*nSwaptions, NULL);
 #else
 	  (parm *)malloc(sizeof(parm)*nSwaptions);
+    count = (uint64_t*)malloc(sizeof(uint64_t) * nThreads);
 #endif
 
         int k;
@@ -287,14 +357,37 @@ int main(int argc, char *argv[])
 
 #ifdef TBB_VERSION
 	Worker w;
-	tbb::parallel_for(tbb::blocked_range<int>(0,nSwaptions,TBB_GRAINSIZE),w);
+	tbb::parallel_for(tbb::blocked_range<int>(0,nSwaptions,TBB_GRAINSIZE),w);  
+
+#elif SHENANGO
+  int threadIDs[nThreads];
+  std::vector<rt::Thread> threads;
+  threads.reserve(nThreads);
+
+  for (i = 0; i < nThreads; i++) {
+    threadIDs[i] = i;
+    threads.emplace_back([i, &threadIDs]() {
+        worker(&threadIDs[i]);
+    });
+  }
+
+  rt::Spawn([&](){
+    print_progress(NULL);
+  });
+
+  for (i = 0; i < nThreads; i++) {
+    threads[i].Join();
+  }
+
 #else
-	
 	int threadIDs[nThreads];
         for (i = 0; i < nThreads; i++) {
           threadIDs[i] = i;
           pthread_create(&threads[i], &pthread_custom_attr, worker, &threadIDs[i]);
         }
+        pthread_t progress;
+        pthread_create(&progress, &pthread_custom_attr, print_progress, NULL);
+
         for (i = 0; i < nThreads; i++) {
           pthread_join(threads[i], NULL);
         }
@@ -338,3 +431,24 @@ int main(int argc, char *argv[])
 
 	return iSuccess;
 }
+
+
+#ifdef SHENANGO
+int main(int argcount, char **argv)
+{
+    int ret;
+
+    if (argcount < 2) {
+         printf("arg must be config file\n");
+         return -EINVAL;
+    }
+
+    char *cfgpath = argv[1];
+    argv[1] = argv[0];
+
+    argc = argcount - 1;
+
+    ret = runtime_init(cfgpath, _main, argv + 1);
+
+}
+#endif
