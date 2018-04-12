@@ -47,7 +47,7 @@
 }
 
 #define X264_BFRAME_MAX 16
-#define X264_THREAD_MAX 128
+#define X264_THREAD_MAX 1024
 #define X264_SLICE_MAX 4
 #define X264_NAL_MAX (4 + X264_SLICE_MAX)
 #define X264_PCM_COST (386*8)

@@ -550,7 +550,7 @@ int read_frame_thread( x264_picture_t *p_pic, hnd_t handle, int i_frame )
 #else
         waitgroup_init(&h->tid);
         waitgroup_add(&h->tid, 1);
-        thread_spawn(read_frame_thread_int, h->next_args);
+        BUG_ON(thread_spawn(read_frame_thread_int, h->next_args));
 #endif
         h->in_progress = 1;
     }

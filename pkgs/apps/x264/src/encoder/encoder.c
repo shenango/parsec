@@ -1593,7 +1593,7 @@ do_encode:
 #else
         waitgroup_init(&h->thread_handle);
         waitgroup_add(&h->thread_handle, 1);
-        thread_spawn(x264_slices_write, h);
+        BUG_ON(thread_spawn(x264_slices_write, h));
 #endif
         h->b_thread_active = 1;
     }
