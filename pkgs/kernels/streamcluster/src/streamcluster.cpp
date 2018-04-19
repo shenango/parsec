@@ -49,7 +49,7 @@ using namespace std;
 /* higher ITER also scales the running time almost linearly */
 #define ITER 3 // iterate ITER* k log k times; ITER >= 1
 
-#define CACHE_LINE 32 // cache line in byte
+#define CACHE_LINE 64 // cache line in byte
 
 /* this structure represents a point */
 /* these will be passed around to avoid copying coordinates */
@@ -71,7 +71,15 @@ static bool *switch_membership; //whether to switch membership in pgain
 static bool* is_center; //whether a point is a center
 static int* center_table; //index table of centers
 
+static size_t nalloc; // number of elements allocated for the above three arrays
+
 static int nproc; //# of threads
+
+static pthread_barrier_t barrier_s;
+static pthread_t* threads_s;
+
+struct pkmedian_arg_t;
+static pkmedian_arg_t* arg_s;
 
 
 #ifdef TBB_VERSION
@@ -1708,13 +1716,9 @@ void localSearch( Points* points, long kmin, long kmax, long* kfinal ) {
 #else //!TBB_VERSION
 
 void localSearch( Points* points, long kmin, long kmax, long* kfinal ) {
-    pthread_barrier_t barrier;
-    pthread_t* threads = new pthread_t[nproc];
-    pkmedian_arg_t* arg = new pkmedian_arg_t[nproc];
+    pthread_t* threads = threads_s;
+    pkmedian_arg_t* arg = arg_s;
 
-#ifdef ENABLE_THREADS
-    pthread_barrier_init(&barrier,NULL,nproc);
-#endif
     for( int i = 0; i < nproc; i++ ) {
       arg[i].points = points;
       arg[i].kmin = kmin;
@@ -1722,7 +1726,7 @@ void localSearch( Points* points, long kmin, long kmax, long* kfinal ) {
       arg[i].pid = i;
       arg[i].kfinal = kfinal;
 
-      arg[i].barrier = &barrier;
+      arg[i].barrier = &barrier_s;
 #ifdef ENABLE_THREADS
       pthread_create(threads+i,NULL,localSearchSub,(void*)&arg[i]);
 #else
@@ -1736,11 +1740,6 @@ void localSearch( Points* points, long kmin, long kmax, long* kfinal ) {
     }
 #endif
 
-    delete[] threads;
-    delete[] arg;
-#ifdef ENABLE_THREADS
-    pthread_barrier_destroy(&barrier);
-#endif
 }
 #endif // TBB_VERSION
 
@@ -1886,7 +1885,7 @@ void streamCluster( PStream* stream,
   long kfinal;
   while(1) {
 
-    size_t numRead  = stream->read(block, dim, chunksize ); 
+    size_t numRead  = stream->read(block, dim, chunksize );
     fprintf(stderr,"read %d points\n",numRead);
 
     if( stream->ferror() || numRead < (unsigned int)chunksize && !stream->feof() ) {
@@ -1904,9 +1903,18 @@ void streamCluster( PStream* stream,
     is_center = (bool*)calloc(points.num,sizeof(bool));
     center_table = (int*)memoryInt.allocate(points.num*sizeof(int));
 #else
-    switch_membership = (bool*)malloc(points.num*sizeof(bool));
-    is_center = (bool*)calloc(points.num,sizeof(bool));
-    center_table = (int*)malloc(points.num*sizeof(int));
+    if (nalloc < points.num) {
+      if (switch_membership)
+        free(switch_membership);
+      if (is_center)
+        free(is_center);
+      if (center_table)
+        free(center_table);
+      switch_membership = (bool*)malloc(points.num*sizeof(bool));
+      is_center = (bool*)calloc(points.num,sizeof(bool));
+      center_table = (int*)malloc(points.num*sizeof(int));
+      nalloc = points.num;
+    }
 #endif
 
 
@@ -1931,9 +1939,7 @@ void streamCluster( PStream* stream,
     free(is_center);
     memoryInt.deallocate(center_table, sizeof(int));
 #else
-    free(is_center);
-    free(switch_membership);
-    free(center_table);
+    memset(is_center, 0, nalloc * sizeof(bool));
 #endif
 
     if( stream->feof() ) {
@@ -1941,6 +1947,14 @@ void streamCluster( PStream* stream,
     }
   }
 
+#ifndef TBB_VERSION
+    free(is_center);
+    free(switch_membership);
+    free(center_table);
+    nalloc = 0;
+#endif
+
+  fprintf(stderr, "Clustering temp centers\n");
   //finally cluster all temp centers
 #ifdef TBB_VERSION
   switch_membership = (bool*)memoryBool.allocate(centers.num*sizeof(bool));
@@ -2005,6 +2019,15 @@ int main(int argc, char **argv)
   strcpy(infilename, argv[7]);
   strcpy(outfilename, argv[8]);
   nproc = atoi(argv[9]);
+
+
+  threads_s = new pthread_t[nproc];
+  arg_s = new pkmedian_arg_t[nproc];
+
+
+#ifdef ENABLE_THREADS
+    pthread_barrier_init(&barrier_s,NULL,nproc);
+#endif
 
 
 #ifdef TBB_VERSION
