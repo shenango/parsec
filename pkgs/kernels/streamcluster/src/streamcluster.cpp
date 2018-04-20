@@ -16,9 +16,19 @@
 #include <sys/resource.h>
 #include <limits.h>
 
+#include <chrono>
+
 #ifdef ENABLE_THREADS
+
+
+#ifndef SHENANGO
 #include <pthread.h>
 #include "parsec_barrier.hpp"
+
+#else
+#include "shenango.hpp"
+#endif
+
 #endif
 
 #ifdef TBB_VERSION
@@ -75,8 +85,74 @@ static size_t nalloc; // number of elements allocated for the above three arrays
 
 static int nproc; //# of threads
 
-static pthread_barrier_t barrier_s;
+
+#ifndef SHENANGO
+
+#define barrier_t pthread_barrier_t
+#define barrier_wait(b) pthread_barrier_wait(b)
+
+#define streamcluster_mutex_lock pthread_mutex_lock
+#define streamcluster_mutex_unlock pthread_mutex_unlock
+
+#define streamcluster_cond_wait pthread_cond_wait
+#define streamcluster_cond_broadcast pthread_cond_broadcast
+
+#define malloc_np malloc
+#define free_np free
+#define calloc_np calloc
+
 static pthread_t* threads_s;
+static pthread_barrier_t barrier_s;
+
+#ifdef ENABLE_THREADS
+static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+#endif
+
+#else
+#define barrier_t rt::Barrier
+#define barrier_wait(b) (b)->Wait()
+
+#define streamcluster_mutex_lock(x) (x)->Lock()
+#define streamcluster_mutex_unlock(x) (x)->Unlock()
+
+#define streamcluster_cond_wait(x,y) (x)->Wait(y)
+#define streamcluster_cond_broadcast(x) (x)->SignalAll()
+
+
+static rt::Barrier *barrier_s;
+static std::vector<rt::Thread> threads_s;
+
+static rt::Mutex mutex;
+static rt::CondVar cond;
+
+static inline void *malloc_np(size_t len)
+{
+    void *ret;
+    preempt_disable();
+    ret = malloc(len);
+    preempt_enable();
+    return ret;
+}
+
+static inline void free_np(void *ptr)
+{
+    preempt_disable();
+    free(ptr);
+    preempt_enable();
+}
+
+static inline void *calloc_np(size_t nmemb, size_t size)
+{
+  void *ret;
+  preempt_disable();
+  ret = calloc(nmemb, size);
+  preempt_enable();
+  return ret;
+}
+
+#endif
+
 
 struct pkmedian_arg_t;
 static pkmedian_arg_t* arg_s;
@@ -708,10 +784,10 @@ float pspeedy(Points *points, float z, long *kcenter)
 
 #else //!TBB_VERSION
 
-float pspeedy(Points *points, float z, long *kcenter, int pid, pthread_barrier_t* barrier)
+float pspeedy(Points *points, float z, long *kcenter, int pid, barrier_t* barrier)
 {
 #ifdef ENABLE_THREADS
-  pthread_barrier_wait(barrier);
+  barrier_wait(barrier);
 #endif
   //my block
   long bsize = points->num/nproc;
@@ -725,10 +801,7 @@ float pspeedy(Points *points, float z, long *kcenter, int pid, pthread_barrier_t
   static double* costs; //cost for each thread. 
   static int i;
 
-#ifdef ENABLE_THREADS
-  static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-  static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
-#endif
+
 
   /* create center at first point, send it to itself */
   for( int k = k1; k < k2; k++ )    {
@@ -739,19 +812,19 @@ float pspeedy(Points *points, float z, long *kcenter, int pid, pthread_barrier_t
 
   if( pid==0 )   {
     *kcenter = 1;
-    costs = (double*)malloc(sizeof(double)*nproc);
+    costs = (double*)malloc_np(sizeof(double)*nproc);
   }
 
 #ifdef ENABLE_THREADS
-  pthread_barrier_wait(barrier);
+  barrier_wait(barrier);
 #endif
     
   if( pid != 0 ) { // we are not the master threads. we wait until a center is opened.
     while(1) {
 #ifdef ENABLE_THREADS
-      pthread_mutex_lock(&mutex);
-      while(!open) pthread_cond_wait(&cond,&mutex);
-      pthread_mutex_unlock(&mutex);
+      streamcluster_mutex_lock(&mutex);
+      while(!open) streamcluster_cond_wait(&cond,&mutex);
+      streamcluster_mutex_unlock(&mutex);
 #endif
       if( i >= points->num ) break;
       for( int k = k1; k < k2; k++ )
@@ -764,8 +837,8 @@ float pspeedy(Points *points, float z, long *kcenter, int pid, pthread_barrier_t
 	    }
 	}
 #ifdef ENABLE_THREADS
-      pthread_barrier_wait(barrier);
-      pthread_barrier_wait(barrier);
+      barrier_wait(barrier);
+      barrier_wait(barrier);
 #endif
     } 
   }
@@ -775,12 +848,12 @@ float pspeedy(Points *points, float z, long *kcenter, int pid, pthread_barrier_t
       if( to_open )  {
 	(*kcenter)++;
 #ifdef ENABLE_THREADS
-	pthread_mutex_lock(&mutex);
+	streamcluster_mutex_lock(&mutex);
 #endif
 	open = true;
 #ifdef ENABLE_THREADS
-	pthread_mutex_unlock(&mutex);
-	pthread_cond_broadcast(&cond);
+	streamcluster_mutex_unlock(&mutex);
+	streamcluster_cond_broadcast(&cond);
 #endif
 	for( int k = k1; k < k2; k++ )  {
 	  float distance = dist(points->p[i],points->p[k],points->dim);
@@ -790,25 +863,25 @@ float pspeedy(Points *points, float z, long *kcenter, int pid, pthread_barrier_t
 	  }
 	}
 #ifdef ENABLE_THREADS
-	pthread_barrier_wait(barrier);
+	barrier_wait(barrier);
 #endif
 	open = false;
 #ifdef ENABLE_THREADS
-	pthread_barrier_wait(barrier);
+	barrier_wait(barrier);
 #endif
       }
     }
 #ifdef ENABLE_THREADS
-    pthread_mutex_lock(&mutex);
+    streamcluster_mutex_lock(&mutex);
 #endif
     open = true;
 #ifdef ENABLE_THREADS
-    pthread_mutex_unlock(&mutex);
-    pthread_cond_broadcast(&cond);
+    streamcluster_mutex_unlock(&mutex);
+    streamcluster_cond_broadcast(&cond);
 #endif
   }
 #ifdef ENABLE_THREADS
-  pthread_barrier_wait(barrier);
+  barrier_wait(barrier);
 #endif
   open = false;
   double mytotal = 0;
@@ -817,7 +890,7 @@ float pspeedy(Points *points, float z, long *kcenter, int pid, pthread_barrier_t
   }
   costs[pid] = mytotal;
 #ifdef ENABLE_THREADS
-  pthread_barrier_wait(barrier);
+  barrier_wait(barrier);
 #endif
   // aggregate costs from each thread
   if( pid == 0 )
@@ -827,10 +900,10 @@ float pspeedy(Points *points, float z, long *kcenter, int pid, pthread_barrier_t
 	{
 	  totalcost += costs[i];
 	} 
-      free(costs);
+      free_np(costs);
     }
 #ifdef ENABLE_THREADS
-  pthread_barrier_wait(barrier);
+  barrier_wait(barrier);
 #endif
 
   return(totalcost);
@@ -879,7 +952,7 @@ double pgain(long x, Points *points, double z, long int *numcenters)
   //my own cost of opening x
   double cost_of_opening_x = 0;
 
-  work_mem = (double*) calloc(stride*((NUM_DIVISIONS)+1),sizeof(double));
+  work_mem = (double*) calloc_np(stride*((NUM_DIVISIONS)+1),sizeof(double));
   
   gl_cost_of_opening_x = 0;
   gl_number_of_centers_to_close = 0;
@@ -949,7 +1022,7 @@ double pgain(long x, Points *points, double z, long int *numcenters)
     gl_cost_of_opening_x = 0;  // the value we'll return
   }
 
-  free(work_mem);
+  free_np(work_mem);
 
   return -gl_cost_of_opening_x;
 }
@@ -957,11 +1030,11 @@ double pgain(long x, Points *points, double z, long int *numcenters)
 #else //!TBB_VERSION
 
 
-double pgain(long x, Points *points, double z, long int *numcenters, int pid, pthread_barrier_t* barrier)
+double pgain(long x, Points *points, double z, long int *numcenters, int pid, barrier_t* barrier)
 {
   //  printf("pgain pthread %d begin\n",pid);
 #ifdef ENABLE_THREADS
-  pthread_barrier_wait(barrier);
+  barrier_wait(barrier);
 #endif
 
   //my block
@@ -990,13 +1063,13 @@ double pgain(long x, Points *points, double z, long int *numcenters, int pid, pt
   double cost_of_opening_x = 0;
 
   if( pid==0 )    { 
-    work_mem = (double*) malloc(stride*(nproc+1)*sizeof(double));
+    work_mem = (double*) malloc_np(stride*(nproc+1)*sizeof(double));
     gl_cost_of_opening_x = 0;
     gl_number_of_centers_to_close = 0;
   }
 
 #ifdef ENABLE_THREADS
-  pthread_barrier_wait(barrier);
+  barrier_wait(barrier);
 #endif
   /*For each center, we have a *lower* field that indicates 
     how much we will save by closing the center. 
@@ -1013,7 +1086,7 @@ double pgain(long x, Points *points, double z, long int *numcenters, int pid, pt
   work_mem[pid*stride] = count;
 
 #ifdef ENABLE_THREADS
-  pthread_barrier_wait(barrier);
+  barrier_wait(barrier);
 #endif
 
   if( pid == 0 ) {
@@ -1026,7 +1099,7 @@ double pgain(long x, Points *points, double z, long int *numcenters, int pid, pt
   }
 
 #ifdef ENABLE_THREADS
-  pthread_barrier_wait(barrier);
+  barrier_wait(barrier);
 #endif
 
   for( int i = k1; i < k2; i++ ) {
@@ -1041,7 +1114,7 @@ double pgain(long x, Points *points, double z, long int *numcenters, int pid, pt
   if( pid== 0 ) memset(work_mem+nproc*stride,0,stride*sizeof(double));
 
 #ifdef ENABLE_THREADS
-  pthread_barrier_wait(barrier);
+  barrier_wait(barrier);
 #endif
   
   //my *lower* fields
@@ -1078,7 +1151,7 @@ double pgain(long x, Points *points, double z, long int *numcenters, int pid, pt
   }
 
 #ifdef ENABLE_THREADS
-  pthread_barrier_wait(barrier);
+  barrier_wait(barrier);
 #endif
 
   // at this time, we can calculate the cost of opening a center
@@ -1107,7 +1180,7 @@ double pgain(long x, Points *points, double z, long int *numcenters, int pid, pt
   work_mem[pid*stride + K+1] = cost_of_opening_x;
 
 #ifdef ENABLE_THREADS
-  pthread_barrier_wait(barrier);
+  barrier_wait(barrier);
 #endif
   //  printf("thread %d cost complete\n",pid); 
 
@@ -1120,7 +1193,7 @@ double pgain(long x, Points *points, double z, long int *numcenters, int pid, pt
     }
   }
 #ifdef ENABLE_THREADS
-  pthread_barrier_wait(barrier);
+  barrier_wait(barrier);
 #endif
   // Now, check whether opening x would save cost; if so, do it, and
   // otherwise do nothing
@@ -1155,14 +1228,14 @@ double pgain(long x, Points *points, double z, long int *numcenters, int pid, pt
       gl_cost_of_opening_x = 0;  // the value we'll return
   }
 #ifdef ENABLE_THREADS
-  pthread_barrier_wait(barrier);
+  barrier_wait(barrier);
 #endif
   if( pid == 0 ) {
-    free(work_mem);
-    //    free(is_center);
-    //    free(switch_membership);
-    //    free(proc_cost_of_opening_x);
-    //    free(proc_number_of_centers_to_close);
+    free_np(work_mem);
+    //    free_np(is_center);
+    //    free_np(switch_membership);
+    //    free_np(proc_cost_of_opening_x);
+    //    free_np(proc_number_of_centers_to_close);
   }
 
   return -gl_cost_of_opening_x;
@@ -1214,10 +1287,10 @@ float pFL(Points *points, int *feasible, int numfeasible,
 #else //!TBB_VERSION
  float pFL(Points *points, int *feasible, int numfeasible,
 	  float z, long *k, double cost, long iter, float e, 
-	  int pid, pthread_barrier_t* barrier)
+	  int pid, barrier_t* barrier)
 {
 #ifdef ENABLE_THREADS
-  pthread_barrier_wait(barrier);
+  barrier_wait(barrier);
 #endif
   long i;
   long x;
@@ -1236,7 +1309,7 @@ float pFL(Points *points, int *feasible, int numfeasible,
       intshuffle(feasible, numfeasible);
     }
 #ifdef ENABLE_THREADS
-    pthread_barrier_wait(barrier);
+    barrier_wait(barrier);
 #endif
     for (i=0;i<iter;i++) {
       x = i%numfeasible;
@@ -1244,7 +1317,7 @@ float pFL(Points *points, int *feasible, int numfeasible,
     }
     cost -= change;
 #ifdef ENABLE_THREADS
-    pthread_barrier_wait(barrier);
+    barrier_wait(barrier);
 #endif
   }
   return(cost);
@@ -1257,13 +1330,13 @@ float pFL(Points *points, int *feasible, int numfeasible,
 #ifdef TBB_VERSION
 int selectfeasible_fast(Points *points, int **feasible, int kmin)
 #else
-int selectfeasible_fast(Points *points, int **feasible, int kmin, int pid, pthread_barrier_t* barrier)
+int selectfeasible_fast(Points *points, int **feasible, int kmin, int pid, barrier_t* barrier)
 #endif
 {
   int numfeasible = points->num;
   if (numfeasible > (ITER*kmin*log((double)kmin)))
     numfeasible = (int)(ITER*kmin*log((double)kmin));
-  *feasible = (int *)malloc(numfeasible*sizeof(int));
+  *feasible = (int *)malloc_np(numfeasible*sizeof(int));
   
   float* accumweight;
   float totalweight;
@@ -1293,7 +1366,7 @@ int selectfeasible_fast(Points *points, int **feasible, int kmin, int pid, pthre
 #ifdef TBB_VERSION
   accumweight= (float*)memoryFloat.allocate(sizeof(float)*points->num);
 #else
-  accumweight= (float*)malloc(sizeof(float)*points->num);
+  accumweight= (float*)malloc_np(sizeof(float)*points->num);
 #endif
 
   accumweight[0] = points->p[0].weight;
@@ -1327,7 +1400,7 @@ int selectfeasible_fast(Points *points, int **feasible, int kmin, int pid, pthre
 #ifdef TBB_VERSION
   memoryFloat.deallocate(accumweight, sizeof(float));
 #else
-  free(accumweight); 
+  free_np(accumweight); 
 #endif
 
   return numfeasible;
@@ -1338,7 +1411,7 @@ int selectfeasible_fast(Points *points, int **feasible, int kmin, int pid, pthre
 #ifdef TBB_VERSION
 /* compute approximate kmedian on the points */
 float pkmedian(Points *points, long kmin, long kmax, long* kfinal,
-	       int pid, pthread_barrier_t* barrier )
+	       int pid, barrier_t* barrier )
 {
   int i;
   double cost;
@@ -1473,7 +1546,7 @@ float pkmedian(Points *points, long kmin, long kmax, long* kfinal,
 
   //  fprintf(stderr,"Cleaning up...\n");
   //clean up...
-  free(feasible); 
+  free_np(feasible); 
   *kfinal = k;
 
   return cost;
@@ -1484,7 +1557,7 @@ float pkmedian(Points *points, long kmin, long kmax, long* kfinal,
 
 /* compute approximate kmedian on the points */
 float pkmedian(Points *points, long kmin, long kmax, long* kfinal,
-	       int pid, pthread_barrier_t* barrier )
+	       int pid, barrier_t* barrier )
 {
   int i;
   double cost;
@@ -1496,7 +1569,7 @@ float pkmedian(Points *points, long kmin, long kmax, long* kfinal,
   static int numfeasible;
   static double* hizs;
 
-  if( pid==0 ) hizs = (double*)calloc(nproc,sizeof(double));
+  if( pid==0 ) hizs = (double*)calloc_np(nproc,sizeof(double));
   hiz = loz = 0.0;
   long numberOfPoints = points->num;
   long ptDimension = points->dim;
@@ -1508,7 +1581,7 @@ float pkmedian(Points *points, long kmin, long kmax, long* kfinal,
   if( pid == nproc-1 ) k2 = points->num;
 
 #ifdef ENABLE_THREADS
-  pthread_barrier_wait(barrier);
+  barrier_wait(barrier);
 #endif
 
   double myhiz = 0;
@@ -1519,7 +1592,7 @@ float pkmedian(Points *points, long kmin, long kmax, long* kfinal,
   hizs[pid] = myhiz;
 
 #ifdef ENABLE_THREADS  
-  pthread_barrier_wait(barrier);
+  barrier_wait(barrier);
 #endif
 
   for( int i = 0; i < nproc; i++ )   {
@@ -1536,7 +1609,7 @@ float pkmedian(Points *points, long kmin, long kmax, long* kfinal,
     }
     cost = 0;
     if( pid== 0 ) {
-      free(hizs); 
+      free_np(hizs); 
       *kfinal = k;
     }
     return cost;
@@ -1574,7 +1647,7 @@ float pkmedian(Points *points, long kmin, long kmax, long* kfinal,
     }
 
 #ifdef ENABLE_THREADS
-  pthread_barrier_wait(barrier);
+  barrier_wait(barrier);
 #endif
 
   while(1) {
@@ -1613,14 +1686,14 @@ float pkmedian(Points *points, long kmin, long kmax, long* kfinal,
 	break;
       }
 #ifdef ENABLE_THREADS
-    pthread_barrier_wait(barrier);
+    barrier_wait(barrier);
 #endif
   }
 
   //clean up...
   if( pid==0 ) {
-    free(feasible); 
-    free(hizs);
+    free_np(feasible); 
+    free_np(hizs);
     *kfinal = k;
   }
 
@@ -1661,7 +1734,7 @@ void copycenters(Points *points, Points* centers, long* centerIDs, long offset)
   long i;
   long k;
 
-  bool *is_a_median = (bool *) calloc(points->num, sizeof(bool));
+  bool *is_a_median = (bool *) calloc_np(points->num, sizeof(bool));
 
   /* mark the centers */
   for ( i = 0; i < points->num; i++ ) {
@@ -1682,7 +1755,7 @@ void copycenters(Points *points, Points* centers, long* centerIDs, long offset)
 
   centers->num = k;
 
-  free(is_a_median);
+  free_np(is_a_median);
 }
 
 struct pkmedian_arg_t
@@ -1692,7 +1765,7 @@ struct pkmedian_arg_t
   long kmax;
   long* kfinal;
   int pid;
-  pthread_barrier_t* barrier;
+  barrier_t* barrier;
 };
 
 void* localSearchSub(void* arg_) {
@@ -1716,7 +1789,6 @@ void localSearch( Points* points, long kmin, long kmax, long* kfinal ) {
 #else //!TBB_VERSION
 
 void localSearch( Points* points, long kmin, long kmax, long* kfinal ) {
-    pthread_t* threads = threads_s;
     pkmedian_arg_t* arg = arg_s;
 
     for( int i = 0; i < nproc; i++ ) {
@@ -1726,18 +1798,36 @@ void localSearch( Points* points, long kmin, long kmax, long* kfinal ) {
       arg[i].pid = i;
       arg[i].kfinal = kfinal;
 
+#ifndef SHENANGO
       arg[i].barrier = &barrier_s;
+#else
+      arg[i].barrier = barrier_s;
+#endif
 #ifdef ENABLE_THREADS
-      pthread_create(threads+i,NULL,localSearchSub,(void*)&arg[i]);
+#ifndef SHENANGO
+      pthread_create(threads_s+i,NULL,localSearchSub,(void*)&arg[i]);
+#else
+      threads_s.emplace_back([i, &arg] {
+        localSearchSub((void*)&arg[i]);
+      });
+#endif
 #else
       localSearchSub(&arg[0]);
 #endif
     }
 
 #ifdef ENABLE_THREADS
+
+#ifndef SHENANGO
     for ( int i = 0; i < nproc; i++) {
-      pthread_join(threads[i],NULL);
+      pthread_join(threads_s[i],NULL);
     }
+#else
+    for (auto &v : threads_s) {
+      v.Join();
+    }
+    threads_s.clear();
+#endif
 #endif
 
 }
@@ -1814,7 +1904,7 @@ void outcenterIDs( Points* centers, long* centerIDs, char* outfile ) {
     fprintf(stderr, "error opening %s\n",outfile);
     exit(1);
   }
-  int* is_a_median = (int*)calloc( sizeof(int), centers->num );
+  int* is_a_median = (int*)calloc_np( sizeof(int), centers->num );
   for( int i =0 ; i< centers->num; i++ ) {
     is_a_median[centers->p[i].assign] = 1;
   }
@@ -1842,9 +1932,9 @@ void streamCluster( PStream* stream,
   float* centerBlock = (float*)memoryFloat.allocate(centersize*dim*sizeof(float) );
   long* centerIDs = (long*)memoryLong.allocate(centersize*dim*sizeof(long));
 #else
-  float* block = (float*)malloc( chunksize*dim*sizeof(float) );
-  float* centerBlock = (float*)malloc(centersize*dim*sizeof(float) );
-  long* centerIDs = (long*)malloc(centersize*dim*sizeof(long));
+  float* block = (float*)malloc_np( chunksize*dim*sizeof(float) );
+  float* centerBlock = (float*)malloc_np(centersize*dim*sizeof(float) );
+  long* centerIDs = (long*)malloc_np(centersize*dim*sizeof(long));
 #endif
 
   if( block == NULL ) { 
@@ -1859,7 +1949,7 @@ void streamCluster( PStream* stream,
 #ifdef TBB_VERSION
     (Point *)memoryPoint.allocate(chunksize*sizeof(Point), NULL);
 #else
-    (Point *)malloc(chunksize*sizeof(Point));
+    (Point *)malloc_np(chunksize*sizeof(Point));
 #endif
 
   for( int i = 0; i < chunksize; i++ ) {
@@ -1872,7 +1962,7 @@ void streamCluster( PStream* stream,
 #ifdef TBB_VERSION
     (Point *)memoryPoint.allocate(centersize*sizeof(Point), NULL);
 #else
-    (Point *)malloc(centersize*sizeof(Point));
+    (Point *)malloc_np(centersize*sizeof(Point));
 #endif
   centers.num = 0;
 
@@ -1884,6 +1974,8 @@ void streamCluster( PStream* stream,
   long IDoffset = 0;
   long kfinal;
   while(1) {
+
+    auto start = std::chrono::steady_clock::now();
 
     size_t numRead  = stream->read(block, dim, chunksize );
     fprintf(stderr,"read %d points\n",numRead);
@@ -1900,19 +1992,19 @@ void streamCluster( PStream* stream,
 
 #ifdef TBB_VERSION
     switch_membership = (bool*)memoryBool.allocate(points.num*sizeof(bool), NULL);
-    is_center = (bool*)calloc(points.num,sizeof(bool));
+    is_center = (bool*)calloc_np(points.num,sizeof(bool));
     center_table = (int*)memoryInt.allocate(points.num*sizeof(int));
 #else
     if (nalloc < points.num) {
       if (switch_membership)
-        free(switch_membership);
+        free_np(switch_membership);
       if (is_center)
-        free(is_center);
+        free_np(is_center);
       if (center_table)
-        free(center_table);
-      switch_membership = (bool*)malloc(points.num*sizeof(bool));
-      is_center = (bool*)calloc(points.num,sizeof(bool));
-      center_table = (int*)malloc(points.num*sizeof(int));
+        free_np(center_table);
+      switch_membership = (bool*)malloc_np(points.num*sizeof(bool));
+      is_center = (bool*)calloc_np(points.num,sizeof(bool));
+      center_table = (int*)malloc_np(points.num*sizeof(int));
       nalloc = points.num;
     }
 #endif
@@ -1936,11 +2028,16 @@ void streamCluster( PStream* stream,
 
 #ifdef TBB_VERSION
     memoryBool.deallocate(switch_membership, sizeof(bool));
-    free(is_center);
+    free_np(is_center);
     memoryInt.deallocate(center_table, sizeof(int));
 #else
     memset(is_center, 0, nalloc * sizeof(bool));
 #endif
+
+    auto now = std::chrono::steady_clock::now();
+    auto elapsedMicros = std::chrono::duration_cast<std::chrono::microseconds>(now - start).count();
+
+    std::cerr << "Points per second: " << chunksize / (elapsedMicros / 1000000.0) << std::endl;
 
     if( stream->feof() ) {
       break;
@@ -1948,9 +2045,9 @@ void streamCluster( PStream* stream,
   }
 
 #ifndef TBB_VERSION
-    free(is_center);
-    free(switch_membership);
-    free(center_table);
+    free_np(is_center);
+    free_np(switch_membership);
+    free_np(center_table);
     nalloc = 0;
 #endif
 
@@ -1958,12 +2055,12 @@ void streamCluster( PStream* stream,
   //finally cluster all temp centers
 #ifdef TBB_VERSION
   switch_membership = (bool*)memoryBool.allocate(centers.num*sizeof(bool));
-  is_center = (bool*)calloc(centers.num,sizeof(bool));
+  is_center = (bool*)calloc_np(centers.num,sizeof(bool));
   center_table = (int*)memoryInt.allocate(centers.num*sizeof(int));
 #else
-  switch_membership = (bool*)malloc(centers.num*sizeof(bool));
-  is_center = (bool*)calloc(centers.num,sizeof(bool));
-  center_table = (int*)malloc(centers.num*sizeof(int));
+  switch_membership = (bool*)malloc_np(centers.num*sizeof(bool));
+  is_center = (bool*)calloc_np(centers.num,sizeof(bool));
+  center_table = (int*)malloc_np(centers.num*sizeof(int));
 #endif
 
   localSearch( &centers, kmin, kmax ,&kfinal ); // parallel
@@ -1971,7 +2068,12 @@ void streamCluster( PStream* stream,
   outcenterIDs( &centers, centerIDs, outfile);
 }
 
+#ifdef SHENANGO
+static int argc;
+int _main(char **argv)
+#else
 int main(int argc, char **argv)
+#endif
 {
   char *outfilename = new char[MAXNAMESIZE];
   char *infilename = new char[MAXNAMESIZE];
@@ -2020,13 +2122,20 @@ int main(int argc, char **argv)
   strcpy(outfilename, argv[8]);
   nproc = atoi(argv[9]);
 
-
+#ifndef SHENANGO
   threads_s = new pthread_t[nproc];
+#else
+  threads_s.reserve(nproc);
+#endif
   arg_s = new pkmedian_arg_t[nproc];
 
 
 #ifdef ENABLE_THREADS
+#ifndef SHENANGO
     pthread_barrier_init(&barrier_s,NULL,nproc);
+#else
+    barrier_s = new rt::Barrier(nproc);
+#endif
 #endif
 
 
@@ -2064,3 +2173,24 @@ int main(int argc, char **argv)
   
   return 0;
 }
+
+
+#ifdef SHENANGO
+int main(int argcount, char **argv)
+{
+    int ret;
+
+    if (argcount < 2) {
+         printf("arg must be config file\n");
+         return -EINVAL;
+    }
+
+    char *cfgpath = argv[1];
+    argv[1] = argv[0];
+
+    argc = argcount - 1;
+
+    ret = runtime_init(cfgpath, _main, argv + 1);
+
+}
+#endif
