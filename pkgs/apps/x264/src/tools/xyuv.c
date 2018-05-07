@@ -241,7 +241,7 @@ int main( int argc, char **argv )
         fprintf( stderr, "no frames to display\n" );
     }
 
-    xyuv.pic = malloc_np( xyuv.i_frame_size );
+    xyuv.pic = malloc( xyuv.i_frame_size );
 
     /* calculate SDL view */
     if( xyuv.i_wall_width > xyuv.i_yuv ) {
@@ -608,7 +608,7 @@ static void xyuv_display( xyuv_t *xyuv, int i_frame )
 
     /* Display title */
     if( xyuv->title )
-        free_np( xyuv->title );
+        free( xyuv->title );
     asprintf( &xyuv->title, SDL_TITLE, xyuv->yuv[0].name, xyuv->i_frame, xyuv->i_frames, xyuv->f_fps );
     SDL_WM_SetCaption( xyuv->title, "" );
 }
@@ -688,7 +688,7 @@ static void xyuv_detect( int *pi_width, int *pi_height )
 
     /* Temporary buffer */
     i_size_max *= 3;
-    pic = malloc_np( i_size_max );
+    pic = malloc( i_size_max );
 
     fprintf( stderr, "guessing size for:\n" );
     for( i = 0; i < xyuv.i_yuv; i++ ) {
@@ -788,5 +788,5 @@ static void xyuv_detect( int *pi_width, int *pi_height )
         }
     }
 
-    free_np( pic );
+    free( pic );
 }

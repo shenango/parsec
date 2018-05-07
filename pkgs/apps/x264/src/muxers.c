@@ -62,7 +62,7 @@ typedef struct {
 /* raw 420 yuv file operation */
 int open_file_yuv( char *psz_filename, hnd_t *p_handle, x264_param_t *p_param )
 {
-    yuv_input_t *h = malloc_np(sizeof(yuv_input_t));
+    yuv_input_t *h = malloc(sizeof(yuv_input_t));
     h->width = p_param->i_width;
     h->height = p_param->i_height;
     h->next_frame = 0;
@@ -117,7 +117,7 @@ int close_file_yuv(hnd_t handle)
     if( !h || !h->fh )
         return 0;
     fclose( h->fh );
-    free_np( h );
+    free( h );
     return 0;
 }
 
@@ -166,7 +166,7 @@ int open_file_y4m( char *psz_filename, hnd_t *p_handle, x264_param_t *p_param )
     int  interlaced;
     char header[MAX_YUV4_HEADER+10];
     char *tokstart, *tokend, *header_end;
-    y4m_input_t *h = malloc_np(sizeof(y4m_input_t));
+    y4m_input_t *h = malloc(sizeof(y4m_input_t));
 
     seekspot = 0;
 
@@ -185,7 +185,7 @@ int open_file_y4m( char *psz_filename, hnd_t *p_handle, x264_param_t *p_param )
             return -1;
         }
         fullbuffer_size = filestat.st_size;
-        fullbuffer = malloc_np(fullbuffer_size);
+        fullbuffer = malloc(fullbuffer_size);
         if (!fullbuffer) {
             return -1;
         }
@@ -365,7 +365,7 @@ int close_file_y4m(hnd_t handle)
     if( !h )
         return 0;
 
-    free_np( h );
+    free( h );
     return 0;
 }
 
@@ -379,7 +379,7 @@ typedef struct {
 
 int open_file_avis( char *psz_filename, hnd_t *p_handle, x264_param_t *p_param )
 {
-    avis_input_t *h = malloc_np(sizeof(avis_input_t));
+    avis_input_t *h = malloc(sizeof(avis_input_t));
     AVISTREAMINFO info;
     int i;
 
@@ -456,7 +456,7 @@ int close_file_avis( hnd_t handle )
     avis_input_t *h = handle;
     AVIStreamRelease(h->p_avi);
     AVIFileExit();
-    free_np(h);
+    free(h);
     return 0;
 }
 #endif
@@ -484,14 +484,14 @@ typedef struct thread_input_arg_t {
 
 int open_file_thread( char *psz_filename, hnd_t *p_handle, x264_param_t *p_param )
 {
-    thread_input_t *h = malloc_np(sizeof(thread_input_t));
+    thread_input_t *h = malloc(sizeof(thread_input_t));
     x264_picture_alloc( &h->pic, X264_CSP_I420, p_param->i_width, p_param->i_height );
     h->p_read_frame = p_read_frame;
     h->p_close_infile = p_close_infile;
     h->p_handle = *p_handle;
     h->in_progress = 0;
     h->next_frame = -1;
-    h->next_args = malloc_np(sizeof(thread_input_arg_t));
+    h->next_args = malloc(sizeof(thread_input_arg_t));
     h->next_args->h = h;
     h->next_args->status = 0;
     h->frame_total = p_get_frame_total( h->p_handle );
@@ -571,8 +571,8 @@ int close_file_thread( hnd_t handle )
 #else
         waitgroup_wait(&h->tid);
 #endif
-    free_np( h->next_args );
-    free_np( h );
+    free( h->next_args );
+    free( h );
     return 0;
 }
 #endif
@@ -688,7 +688,7 @@ int close_file_mp4( hnd_t handle )
     if (p_mp4->p_sample)
     {
         if (p_mp4->p_sample->data)
-            free_np(p_mp4->p_sample->data);
+            free(p_mp4->p_sample->data);
 
         gf_isom_sample_del(&p_mp4->p_sample);
     }
@@ -701,7 +701,7 @@ int close_file_mp4( hnd_t handle )
         gf_isom_close(p_mp4->p_file);
     }
 
-    free_np(p_mp4);
+    free(p_mp4);
 
     return 0;
 }
@@ -712,7 +712,7 @@ int open_file_mp4( char *psz_filename, hnd_t *p_handle )
 
     *p_handle = NULL;
 
-    if ((p_mp4 = (mp4_t *)malloc_np(sizeof(mp4_t))) == NULL)
+    if ((p_mp4 = (mp4_t *)malloc(sizeof(mp4_t))) == NULL)
         return -1;
 
     memset(p_mp4, 0, sizeof(mp4_t));
@@ -760,7 +760,7 @@ int set_param_mp4( hnd_t handle, x264_param_t *p_param )
         gf_isom_set_track_layout_info( p_mp4->p_file, p_mp4->i_track, dw, dh, 0, 0, 0 );
     }
 
-    p_mp4->p_sample->data = (char *)malloc_np(p_param->i_width * p_param->i_height * 3 / 2);
+    p_mp4->p_sample->data = (char *)malloc(p_param->i_width * p_param->i_height * 3 / 2);
     if (p_mp4->p_sample->data == NULL)
         return -1;
 
@@ -792,9 +792,9 @@ int write_nalu_mp4( hnd_t handle, uint8_t *p_nalu, int i_size )
             p_mp4->p_config->AVCProfileIndication = p_nalu[5];
             p_mp4->p_config->profile_compatibility = p_nalu[6];
             p_mp4->p_config->AVCLevelIndication = p_nalu[7];
-            p_slot = (GF_AVCConfigSlot *)malloc_np(sizeof(GF_AVCConfigSlot));
+            p_slot = (GF_AVCConfigSlot *)malloc(sizeof(GF_AVCConfigSlot));
             p_slot->size = i_size - 4;
-            p_slot->data = (char *)malloc_np(p_slot->size);
+            p_slot->data = (char *)malloc(p_slot->size);
             memcpy(p_slot->data, p_nalu + 4, i_size - 4);
             gf_list_add(p_mp4->p_config->sequenceParameterSets, p_slot);
             p_slot = NULL;
@@ -806,9 +806,9 @@ int write_nalu_mp4( hnd_t handle, uint8_t *p_nalu, int i_size )
     case 0x08:
         if (!p_mp4->b_pps)
         {
-            p_slot = (GF_AVCConfigSlot *)malloc_np(sizeof(GF_AVCConfigSlot));
+            p_slot = (GF_AVCConfigSlot *)malloc(sizeof(GF_AVCConfigSlot));
             p_slot->size = i_size - 4;
-            p_slot->data = (char *)malloc_np(p_slot->size);
+            p_slot->data = (char *)malloc(p_slot->size);
             memcpy(p_slot->data, p_nalu + 4, i_size - 4);
             gf_list_add(p_mp4->p_config->pictureParameterSets, p_slot);
             p_slot = NULL;
@@ -885,7 +885,7 @@ static int write_header_mkv( mkv_t *p_mkv )
         return -1;
 
     avcC_len = 5 + 1 + 2 + p_mkv->sps_len + 1 + 2 + p_mkv->pps_len;
-    avcC = malloc_np(avcC_len);
+    avcC = malloc(avcC_len);
     if (avcC == NULL)
         return -1;
 
@@ -912,7 +912,7 @@ static int write_header_mkv( mkv_t *p_mkv )
                           p_mkv->width, p_mkv->height,
                           p_mkv->d_width, p_mkv->d_height );
 
-    free_np( avcC );
+    free( avcC );
 
     p_mkv->b_header_written = 1;
 
@@ -925,7 +925,7 @@ int open_file_mkv( char *psz_filename, hnd_t *p_handle )
 
     *p_handle = NULL;
 
-    p_mkv  = malloc_np(sizeof(*p_mkv));
+    p_mkv  = malloc(sizeof(*p_mkv));
     if (p_mkv == NULL)
         return -1;
 
@@ -934,7 +934,7 @@ int open_file_mkv( char *psz_filename, hnd_t *p_handle )
     p_mkv->w = mk_createWriter(psz_filename);
     if (p_mkv->w == NULL)
     {
-        free_np(p_mkv);
+        free(p_mkv);
         return -1;
     }
 
@@ -1000,7 +1000,7 @@ int write_nalu_mkv( hnd_t handle, uint8_t *p_nalu, int i_size )
     case 0x07:
         if( !p_mkv->sps )
         {
-            p_mkv->sps = malloc_np(i_size - 4);
+            p_mkv->sps = malloc(i_size - 4);
             if (p_mkv->sps == NULL)
                 return -1;
             p_mkv->sps_len = i_size - 4;
@@ -1012,7 +1012,7 @@ int write_nalu_mkv( hnd_t handle, uint8_t *p_nalu, int i_size )
     case 0x08:
         if( !p_mkv->pps )
         {
-            p_mkv->pps = malloc_np(i_size - 4);
+            p_mkv->pps = malloc(i_size - 4);
             if (p_mkv->pps == NULL)
                 return -1;
             p_mkv->pps_len = i_size - 4;
@@ -1068,13 +1068,13 @@ int close_file_mkv( hnd_t handle )
     int   ret;
 
     if( p_mkv->sps )
-        free_np( p_mkv->sps );
+        free( p_mkv->sps );
     if( p_mkv->pps )
-        free_np( p_mkv->pps );
+        free( p_mkv->pps );
 
     ret = mk_close(p_mkv->w);
 
-    free_np( p_mkv );
+    free( p_mkv );
 
     return ret;
 }

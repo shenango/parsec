@@ -97,44 +97,6 @@
 #undef assert
 #define assert(x) BUG_ON(!(x))
 
-#include <stdlib.h>
-#include <malloc.h>
-static inline void *malloc_np(size_t len)
-{
-    void *ret;
-    preempt_disable();
-    ret = malloc(len);
-    preempt_enable();
-    return ret;
-}
-
-static inline void free_np(void *ptr)
-{
-    preempt_disable();
-    free(ptr);
-    preempt_enable();
-}
-
-static inline void *realloc_np(void *ptr, size_t len)
-{
-    void *ret;
-    preempt_disable();
-    ret = realloc(ptr, len);
-    preempt_enable();
-    return ret;
-}
-
-#if defined( HAVE_MALLOC_H )
-static inline void *memalign_np(size_t alignment, size_t size)
-{
-    void *ret;
-    preempt_disable();
-    ret = memalign(alignment, size);
-    preempt_enable();
-    return ret;
-}
-#endif
-
 #define x264_pthread_t              waitgroup_t
 #define x264_pthread_create         {assert(0);}
 #define x264_pthread_join           {assert(0);}
@@ -204,10 +166,6 @@ static inline void *memalign_np(size_t alignment, size_t size)
 
 #ifndef SHENANGO
 
-#define malloc_np malloc
-#define free_np free
-#define realloc_np realloc
-#define memalign_np memalign
 #define preempt_enable()
 #define preempt_disable()
 

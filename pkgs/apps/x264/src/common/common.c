@@ -257,7 +257,7 @@ int x264_param_parse( x264_param_t *p, const char *name, const char *value )
                 if( !x264_cpu_names[i].flags )
                     b_error = 1;
             }
-            free_np( buf );
+            free( buf );
         }
     }
     OPT("threads")
@@ -580,7 +580,7 @@ int x264_param_parse( x264_param_t *p, const char *name, const char *value )
 #undef atof
 
     if( name_buf )
-        free_np( name_buf );
+        free( name_buf );
 
     b_error |= value_was_null && !name_was_bool;
     return b_error ? X264_PARAM_BAD_VALUE : 0;
@@ -706,13 +706,13 @@ void *x264_malloc( int i_size )
 {
 #ifdef SYS_MACOSX
     /* Mac OS X always returns 16 bytes aligned memory */
-    return malloc_np( i_size );
+    return malloc( i_size );
 #elif defined( HAVE_MALLOC_H )
-    return memalign_np( 16, i_size );
+    return memalign( 16, i_size );
 #else
     uint8_t * buf;
     uint8_t * align_buf;
-    buf = (uint8_t *) malloc_np( i_size + 15 + sizeof( void ** ) +
+    buf = (uint8_t *) malloc( i_size + 15 + sizeof( void ** ) +
               sizeof( int ) );
     align_buf = buf + 15 + sizeof( void ** ) + sizeof( int );
     align_buf -= (long) align_buf & 15;
@@ -730,9 +730,9 @@ void x264_free( void *p )
     if( p )
     {
 #if defined( HAVE_MALLOC_H ) || defined( SYS_MACOSX )
-        free_np( p );
+        free( p );
 #else
-        free_np( *( ( ( void **) p ) - 1 ) );
+        free( *( ( ( void **) p ) - 1 ) );
 #endif
     }
 }
@@ -743,7 +743,7 @@ void x264_free( void *p )
 void *x264_realloc( void *p, int i_size )
 {
 #ifdef HAVE_MALLOC_H
-    return realloc_np( p, i_size );
+    return realloc( p, i_size );
 #else
     int       i_old_size = 0;
     uint8_t * p_new;

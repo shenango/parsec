@@ -61,7 +61,7 @@ static mk_Context *mk_createContext(mk_Writer *w, mk_Context *parent, unsigned i
     c = w->freelist;
     w->freelist = w->freelist->next;
   } else {
-    c = malloc_np(sizeof(*c));
+    c = malloc(sizeof(*c));
     memset(c, 0, sizeof(*c));
   }
 
@@ -90,7 +90,7 @@ static int	  mk_appendContextData(mk_Context *c, const void *data, unsigned size
     while (ns > dn)
       dn <<= 1;
 
-    dp = realloc_np(c->data, dn);
+    dp = realloc(c->data, dn);
     if (dp == NULL)
       return -1;
 
@@ -193,14 +193,14 @@ static void	  mk_destroyContexts(mk_Writer *w) {
 
   for (cur = w->freelist; cur; cur = next) {
     next = cur->next;
-    free_np(cur->data);
-    free_np(cur);
+    free(cur->data);
+    free(cur);
   }
 
   for (cur = w->actlist; cur; cur = next) {
     next = cur->next;
-    free_np(cur->data);
-    free_np(cur);
+    free(cur->data);
+    free(cur);
   }
 
   w->freelist = w->actlist = w->root = NULL;
@@ -300,7 +300,7 @@ static unsigned	  mk_ebmlSIntSize(int64_t si) {
 }
 
 mk_Writer *mk_createWriter(const char *filename) {
-  mk_Writer *w = malloc_np(sizeof(*w));
+  mk_Writer *w = malloc(sizeof(*w));
   if (w == NULL)
     return NULL;
 
@@ -308,14 +308,14 @@ mk_Writer *mk_createWriter(const char *filename) {
 
   w->root = mk_createContext(w, NULL, 0);
   if (w->root == NULL) {
-    free_np(w);
+    free(w);
     return NULL;
   }
 
   w->fp = fopen(filename, "wb");
   if (w->fp == NULL) {
     mk_destroyContexts(w);
-    free_np(w);
+    free(w);
     return NULL;
   }
 
@@ -509,7 +509,7 @@ int	  mk_close(mk_Writer *w) {
   }
   mk_destroyContexts(w);
   fclose(w->fp);
-  free_np(w);
+  free(w);
   return ret;
 }
 
