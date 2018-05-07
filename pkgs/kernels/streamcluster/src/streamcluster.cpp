@@ -97,10 +97,6 @@ static int nproc; //# of threads
 #define streamcluster_cond_wait pthread_cond_wait
 #define streamcluster_cond_broadcast pthread_cond_broadcast
 
-#define malloc_np malloc
-#define free_np free
-#define calloc_np calloc
-
 static pthread_t* threads_s;
 static pthread_barrier_t barrier_s;
 
@@ -125,31 +121,6 @@ static std::vector<rt::Thread> threads_s;
 
 static rt::Mutex mutex;
 static rt::CondVar cond;
-
-static inline void *malloc_np(size_t len)
-{
-    void *ret;
-    preempt_disable();
-    ret = malloc(len);
-    preempt_enable();
-    return ret;
-}
-
-static inline void free_np(void *ptr)
-{
-    preempt_disable();
-    free(ptr);
-    preempt_enable();
-}
-
-static inline void *calloc_np(size_t nmemb, size_t size)
-{
-  void *ret;
-  preempt_disable();
-  ret = calloc(nmemb, size);
-  preempt_enable();
-  return ret;
-}
 
 #endif
 
@@ -812,7 +783,7 @@ float pspeedy(Points *points, float z, long *kcenter, int pid, barrier_t* barrie
 
   if( pid==0 )   {
     *kcenter = 1;
-    costs = (double*)malloc_np(sizeof(double)*nproc);
+    costs = (double*)malloc(sizeof(double)*nproc);
   }
 
 #ifdef ENABLE_THREADS
@@ -900,7 +871,7 @@ float pspeedy(Points *points, float z, long *kcenter, int pid, barrier_t* barrie
 	{
 	  totalcost += costs[i];
 	} 
-      free_np(costs);
+      free(costs);
     }
 #ifdef ENABLE_THREADS
   barrier_wait(barrier);
@@ -952,7 +923,7 @@ double pgain(long x, Points *points, double z, long int *numcenters)
   //my own cost of opening x
   double cost_of_opening_x = 0;
 
-  work_mem = (double*) calloc_np(stride*((NUM_DIVISIONS)+1),sizeof(double));
+  work_mem = (double*) calloc(stride*((NUM_DIVISIONS)+1),sizeof(double));
   
   gl_cost_of_opening_x = 0;
   gl_number_of_centers_to_close = 0;
@@ -1022,7 +993,7 @@ double pgain(long x, Points *points, double z, long int *numcenters)
     gl_cost_of_opening_x = 0;  // the value we'll return
   }
 
-  free_np(work_mem);
+  free(work_mem);
 
   return -gl_cost_of_opening_x;
 }
@@ -1063,7 +1034,7 @@ double pgain(long x, Points *points, double z, long int *numcenters, int pid, ba
   double cost_of_opening_x = 0;
 
   if( pid==0 )    { 
-    work_mem = (double*) malloc_np(stride*(nproc+1)*sizeof(double));
+    work_mem = (double*) malloc(stride*(nproc+1)*sizeof(double));
     gl_cost_of_opening_x = 0;
     gl_number_of_centers_to_close = 0;
   }
@@ -1231,11 +1202,11 @@ double pgain(long x, Points *points, double z, long int *numcenters, int pid, ba
   barrier_wait(barrier);
 #endif
   if( pid == 0 ) {
-    free_np(work_mem);
-    //    free_np(is_center);
-    //    free_np(switch_membership);
-    //    free_np(proc_cost_of_opening_x);
-    //    free_np(proc_number_of_centers_to_close);
+    free(work_mem);
+    //    free(is_center);
+    //    free(switch_membership);
+    //    free(proc_cost_of_opening_x);
+    //    free(proc_number_of_centers_to_close);
   }
 
   return -gl_cost_of_opening_x;
@@ -1336,7 +1307,7 @@ int selectfeasible_fast(Points *points, int **feasible, int kmin, int pid, barri
   int numfeasible = points->num;
   if (numfeasible > (ITER*kmin*log((double)kmin)))
     numfeasible = (int)(ITER*kmin*log((double)kmin));
-  *feasible = (int *)malloc_np(numfeasible*sizeof(int));
+  *feasible = (int *)malloc(numfeasible*sizeof(int));
   
   float* accumweight;
   float totalweight;
@@ -1366,7 +1337,7 @@ int selectfeasible_fast(Points *points, int **feasible, int kmin, int pid, barri
 #ifdef TBB_VERSION
   accumweight= (float*)memoryFloat.allocate(sizeof(float)*points->num);
 #else
-  accumweight= (float*)malloc_np(sizeof(float)*points->num);
+  accumweight= (float*)malloc(sizeof(float)*points->num);
 #endif
 
   accumweight[0] = points->p[0].weight;
@@ -1400,7 +1371,7 @@ int selectfeasible_fast(Points *points, int **feasible, int kmin, int pid, barri
 #ifdef TBB_VERSION
   memoryFloat.deallocate(accumweight, sizeof(float));
 #else
-  free_np(accumweight); 
+  free(accumweight); 
 #endif
 
   return numfeasible;
@@ -1546,7 +1517,7 @@ float pkmedian(Points *points, long kmin, long kmax, long* kfinal,
 
   //  fprintf(stderr,"Cleaning up...\n");
   //clean up...
-  free_np(feasible); 
+  free(feasible); 
   *kfinal = k;
 
   return cost;
@@ -1569,7 +1540,7 @@ float pkmedian(Points *points, long kmin, long kmax, long* kfinal,
   static int numfeasible;
   static double* hizs;
 
-  if( pid==0 ) hizs = (double*)calloc_np(nproc,sizeof(double));
+  if( pid==0 ) hizs = (double*)calloc(nproc,sizeof(double));
   hiz = loz = 0.0;
   long numberOfPoints = points->num;
   long ptDimension = points->dim;
@@ -1609,7 +1580,7 @@ float pkmedian(Points *points, long kmin, long kmax, long* kfinal,
     }
     cost = 0;
     if( pid== 0 ) {
-      free_np(hizs); 
+      free(hizs); 
       *kfinal = k;
     }
     return cost;
@@ -1692,8 +1663,8 @@ float pkmedian(Points *points, long kmin, long kmax, long* kfinal,
 
   //clean up...
   if( pid==0 ) {
-    free_np(feasible); 
-    free_np(hizs);
+    free(feasible); 
+    free(hizs);
     *kfinal = k;
   }
 
@@ -1734,7 +1705,7 @@ void copycenters(Points *points, Points* centers, long* centerIDs, long offset)
   long i;
   long k;
 
-  bool *is_a_median = (bool *) calloc_np(points->num, sizeof(bool));
+  bool *is_a_median = (bool *) calloc(points->num, sizeof(bool));
 
   /* mark the centers */
   for ( i = 0; i < points->num; i++ ) {
@@ -1755,7 +1726,7 @@ void copycenters(Points *points, Points* centers, long* centerIDs, long offset)
 
   centers->num = k;
 
-  free_np(is_a_median);
+  free(is_a_median);
 }
 
 struct pkmedian_arg_t
@@ -1904,7 +1875,7 @@ void outcenterIDs( Points* centers, long* centerIDs, char* outfile ) {
     fprintf(stderr, "error opening %s\n",outfile);
     exit(1);
   }
-  int* is_a_median = (int*)calloc_np( sizeof(int), centers->num );
+  int* is_a_median = (int*)calloc( sizeof(int), centers->num );
   for( int i =0 ; i< centers->num; i++ ) {
     is_a_median[centers->p[i].assign] = 1;
   }
@@ -1932,9 +1903,9 @@ void streamCluster( PStream* stream,
   float* centerBlock = (float*)memoryFloat.allocate(centersize*dim*sizeof(float) );
   long* centerIDs = (long*)memoryLong.allocate(centersize*dim*sizeof(long));
 #else
-  float* block = (float*)malloc_np( chunksize*dim*sizeof(float) );
-  float* centerBlock = (float*)malloc_np(centersize*dim*sizeof(float) );
-  long* centerIDs = (long*)malloc_np(centersize*dim*sizeof(long));
+  float* block = (float*)malloc( chunksize*dim*sizeof(float) );
+  float* centerBlock = (float*)malloc(centersize*dim*sizeof(float) );
+  long* centerIDs = (long*)malloc(centersize*dim*sizeof(long));
 #endif
 
   if( block == NULL ) { 
@@ -1949,7 +1920,7 @@ void streamCluster( PStream* stream,
 #ifdef TBB_VERSION
     (Point *)memoryPoint.allocate(chunksize*sizeof(Point), NULL);
 #else
-    (Point *)malloc_np(chunksize*sizeof(Point));
+    (Point *)malloc(chunksize*sizeof(Point));
 #endif
 
   for( int i = 0; i < chunksize; i++ ) {
@@ -1962,7 +1933,7 @@ void streamCluster( PStream* stream,
 #ifdef TBB_VERSION
     (Point *)memoryPoint.allocate(centersize*sizeof(Point), NULL);
 #else
-    (Point *)malloc_np(centersize*sizeof(Point));
+    (Point *)malloc(centersize*sizeof(Point));
 #endif
   centers.num = 0;
 
@@ -1992,19 +1963,19 @@ void streamCluster( PStream* stream,
 
 #ifdef TBB_VERSION
     switch_membership = (bool*)memoryBool.allocate(points.num*sizeof(bool), NULL);
-    is_center = (bool*)calloc_np(points.num,sizeof(bool));
+    is_center = (bool*)calloc(points.num,sizeof(bool));
     center_table = (int*)memoryInt.allocate(points.num*sizeof(int));
 #else
     if (nalloc < points.num) {
       if (switch_membership)
-        free_np(switch_membership);
+        free(switch_membership);
       if (is_center)
-        free_np(is_center);
+        free(is_center);
       if (center_table)
-        free_np(center_table);
-      switch_membership = (bool*)malloc_np(points.num*sizeof(bool));
-      is_center = (bool*)calloc_np(points.num,sizeof(bool));
-      center_table = (int*)malloc_np(points.num*sizeof(int));
+        free(center_table);
+      switch_membership = (bool*)malloc(points.num*sizeof(bool));
+      is_center = (bool*)calloc(points.num,sizeof(bool));
+      center_table = (int*)malloc(points.num*sizeof(int));
       nalloc = points.num;
     }
 #endif
@@ -2028,7 +1999,7 @@ void streamCluster( PStream* stream,
 
 #ifdef TBB_VERSION
     memoryBool.deallocate(switch_membership, sizeof(bool));
-    free_np(is_center);
+    free(is_center);
     memoryInt.deallocate(center_table, sizeof(int));
 #else
     memset(is_center, 0, nalloc * sizeof(bool));
@@ -2045,9 +2016,9 @@ void streamCluster( PStream* stream,
   }
 
 #ifndef TBB_VERSION
-    free_np(is_center);
-    free_np(switch_membership);
-    free_np(center_table);
+    free(is_center);
+    free(switch_membership);
+    free(center_table);
     nalloc = 0;
 #endif
 
@@ -2055,12 +2026,12 @@ void streamCluster( PStream* stream,
   //finally cluster all temp centers
 #ifdef TBB_VERSION
   switch_membership = (bool*)memoryBool.allocate(centers.num*sizeof(bool));
-  is_center = (bool*)calloc_np(centers.num,sizeof(bool));
+  is_center = (bool*)calloc(centers.num,sizeof(bool));
   center_table = (int*)memoryInt.allocate(centers.num*sizeof(int));
 #else
-  switch_membership = (bool*)malloc_np(centers.num*sizeof(bool));
-  is_center = (bool*)calloc_np(centers.num,sizeof(bool));
-  center_table = (int*)malloc_np(centers.num*sizeof(int));
+  switch_membership = (bool*)malloc(centers.num*sizeof(bool));
+  is_center = (bool*)calloc(centers.num,sizeof(bool));
+  center_table = (int*)malloc(centers.num*sizeof(int));
 #endif
 
   localSearch( &centers, kmin, kmax ,&kfinal ); // parallel
