@@ -1,6 +1,10 @@
 #include <unistd.h>
 #include <string.h>
 
+#ifdef ENABLE_PTHREADS
+#include "osdep.h"
+#endif //ENABLE_PTHREADS
+
 #include "util.h"
 #include "debug.h"
 #include "dedupdef.h"
@@ -13,9 +17,7 @@
 #include <dmalloc.h>
 #endif //ENABLE_DMALLOC
 
-#ifdef ENABLE_PTHREADS
-#include <pthread.h>
-#endif //ENABLE_PTHREADS
+
 
 #ifdef ENABLE_PARSEC_HOOKS
 #include <hooks.h>
@@ -42,7 +44,13 @@ usage(char* prog)
   printf("-h \t\t\thelp\n");
 }
 /*--------------------------------------------------------------------------*/
+
+#ifdef SHENANGO
+static int argc;
+int _main(char** argv) {
+#else
 int main(int argc, char** argv) {
+#endif
 #ifdef PARSEC_VERSION
 #define __PARSEC_STRING(x) #x
 #define __PARSEC_XSTRING(x) __PARSEC_STRING(x)
@@ -166,4 +174,24 @@ int main(int argc, char** argv) {
 
   return 0;
 }
+
+#ifdef SHENANGO
+int main(int argcount, char **argv)
+{
+    int ret;
+
+    if (argcount < 2) {
+         printf("arg must be config file\n");
+         return -EINVAL;
+    }
+
+    char *cfgpath = argv[1];
+    argv[1] = argv[0];
+
+    argc = argcount - 1;
+
+    ret = runtime_init(cfgpath, _main, argv + 1);
+
+}
+#endif
 

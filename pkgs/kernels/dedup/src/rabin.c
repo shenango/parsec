@@ -1,9 +1,9 @@
-#include <assert.h>
 #include <stdlib.h>
 #include <stdint.h>
 
 #include "dedupdef.h"
 #include "rabin.h"
+#include <assert.h>
 
 #undef PRINT
 

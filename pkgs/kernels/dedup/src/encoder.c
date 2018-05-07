@@ -16,7 +16,6 @@
  * 3. put them in the queue for the next stage
  */
 
-#include <assert.h>
 #include <strings.h>
 #include <math.h>
 #include <limits.h>
@@ -34,6 +33,7 @@
 #include "config.h"
 #include "rabin.h"
 #include "mbuffer.h"
+#include <assert.h>
 
 #ifdef ENABLE_PTHREADS
 #include "queue.h"

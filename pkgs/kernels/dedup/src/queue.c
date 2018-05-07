@@ -1,4 +1,3 @@
-#include <assert.h>
 
 #include "util.h"
 #include "queue.h"
@@ -7,6 +6,8 @@
 #ifdef ENABLE_PTHREADS
 #include "osdep.h"
 #endif //ENABLE_PTHREADS
+
+#include <assert.h>
 
 void queue_init(queue_t * que, size_t size, int nProducers) {
 #ifdef ENABLE_PTHREADS

@@ -1,6 +1,8 @@
 #ifndef _DEDUPDEF_H_
 #define _DEDUPDEF_H_
 
+#include "osdep.h"
+
 #include <sys/types.h>
 #include <stdint.h>
 #include <assert.h>
@@ -9,7 +11,6 @@
 #include "mbuffer.h"
 #include "sha.h"
 
-#include "osdep.h"
 
 #define CHECKBIT 123456
 

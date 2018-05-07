@@ -3,11 +3,11 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 
 #ifdef ENABLE_PTHREADS
 #include "osdep.h"
 #endif //ENABLE_PTHREADS
+#include <assert.h>
 
 #ifdef ENABLE_DMALLOC
 #include <dmalloc.h>
