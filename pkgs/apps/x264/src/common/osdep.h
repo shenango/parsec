@@ -94,12 +94,17 @@
 #include <runtime/thread.h>
 #include <runtime/timer.h>
 
+#include <shen.h>
+
 #undef assert
 #define assert(x) BUG_ON(!(x))
 
-#define x264_pthread_t              waitgroup_t
-#define x264_pthread_create         {assert(0);}
-#define x264_pthread_join           {assert(0);}
+#define x264_pthread_t              struct join_handle *
+#define x264_pthread_create(a,b,c,d) { \
+    assert(b == NULL); \
+    thread_spawn_joinable(a,c,d); \
+}
+#define x264_pthread_join           thread_join
 
 
 #define x264_pthread_mutex_t         mutex_t
