@@ -17,7 +17,7 @@
 #include <limits.h>
 
 #include <chrono>
-
+#include <vector>
 #ifdef ENABLE_THREADS
 
 
@@ -26,7 +26,10 @@
 #include "parsec_barrier.hpp"
 
 #else
-#include "shenango.hpp"
+#include <thread.h>
+#include <sync.h>
+
+#include <shen.h>
 #endif
 
 #endif
@@ -106,8 +109,6 @@ static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 #endif
 
 #else
-#define barrier_t rt::Barrier
-#define barrier_wait(b) (b)->Wait()
 
 #define streamcluster_mutex_lock(x) (x)->Lock()
 #define streamcluster_mutex_unlock(x) (x)->Unlock()
@@ -116,7 +117,7 @@ static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 #define streamcluster_cond_broadcast(x) (x)->SignalAll()
 
 
-static rt::Barrier *barrier_s;
+static barrier_t barrier_s;
 static std::vector<rt::Thread> threads_s;
 
 static rt::Mutex mutex;
@@ -1768,12 +1769,8 @@ void localSearch( Points* points, long kmin, long kmax, long* kfinal ) {
       arg[i].kmax = kmax;
       arg[i].pid = i;
       arg[i].kfinal = kfinal;
-
-#ifndef SHENANGO
       arg[i].barrier = &barrier_s;
-#else
-      arg[i].barrier = barrier_s;
-#endif
+
 #ifdef ENABLE_THREADS
 #ifndef SHENANGO
       pthread_create(threads_s+i,NULL,localSearchSub,(void*)&arg[i]);
@@ -2105,7 +2102,7 @@ int main(int argc, char **argv)
 #ifndef SHENANGO
     pthread_barrier_init(&barrier_s,NULL,nproc);
 #else
-    barrier_s = new rt::Barrier(nproc);
+    barrier_init(&barrier_s, nproc);
 #endif
 #endif
 
