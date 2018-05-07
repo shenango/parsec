@@ -5,8 +5,6 @@
 #include "nr_routines.h"
 #include "HJM_type.h"
 
-#include "shen_libc.h"
-
 #define SWAP(a,b) {temp=(a);(a)=(b);(b)=temp;}
 
 
@@ -118,7 +116,7 @@ int *ivector(long nl, long nh)
 {
 	int *v;
 
-	v=(int *)malloc_np((size_t) ((nh-nl+2)*sizeof(int)));
+	v=(int *)malloc((size_t) ((nh-nl+2)*sizeof(int)));
 	if (!v) nrerror("allocation failure in ivector()");
 	return v-nl+1;
 }
@@ -127,7 +125,7 @@ int *ivector(long nl, long nh)
 void free_ivector(int *v, long nl, long nh)
 /* free an int vector allocated with ivector() */
 {
-	free_np((char *) (v+nl-1));
+	free((char *) (v+nl-1));
 }
 
 /**********************************************************************/
@@ -137,7 +135,7 @@ FTYPE *dvector( long nl, long nh )
 
 	FTYPE *v;
 
-	v=(FTYPE *)malloc_np((size_t) ((nh-nl+2)*sizeof(FTYPE)));
+	v=(FTYPE *)malloc((size_t) ((nh-nl+2)*sizeof(FTYPE)));
 	if (!v) nrerror("allocation failure in dvector()");
 	return v-nl+1;
 
@@ -148,7 +146,7 @@ void free_dvector( FTYPE *v, long nl, long nh )
 {
   // free a FTYPE vector allocated with dvector()
 
-	free_np((char*) (v+nl-1));
+	free((char*) (v+nl-1));
 
 } // end of free_dvector
 
@@ -161,13 +159,13 @@ FTYPE **dmatrix( long nrl, long nrh, long ncl, long nch )
 	FTYPE **m;
 
   // allocate pointers to rows
-	m=(FTYPE **) malloc_np((size_t)((nrow+1)*sizeof(FTYPE*)));
+	m=(FTYPE **) malloc((size_t)((nrow+1)*sizeof(FTYPE*)));
 	if (!m) nrerror("allocation failure 1 in dmatrix()");
 	m += 1;
 	m -= nrl;
 
   // allocate rows and set pointers to them
-	m[nrl]=(FTYPE *) malloc_np((size_t)((nrow*ncol+1)*sizeof(FTYPE)));
+	m[nrl]=(FTYPE *) malloc((size_t)((nrow*ncol+1)*sizeof(FTYPE)));
 	if (!m[nrl]) nrerror("allocation failure 2 in dmatrix()");
 	m[nrl] += 1;
 	m[nrl] -= ncl;
@@ -184,8 +182,8 @@ void free_dmatrix( FTYPE **m, long nrl, long nrh, long ncl, long nch )
 {
   // free a FTYPE matrix allocated by dmatrix()
 
-	free_np((char*) (m[nrl]+ncl-1));
-	free_np((char*) (m+nrl-1));
+	free((char*) (m[nrl]+ncl-1));
+	free((char*) (m+nrl-1));
 
 } // end of free_dmatrix
 

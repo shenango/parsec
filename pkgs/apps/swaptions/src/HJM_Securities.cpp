@@ -14,8 +14,6 @@
 #include "HJM_Securities.h"
 #include "HJM_type.h"
 
-#include "shen_libc.h"
-
 
 #ifdef ENABLE_THREADS
 
@@ -251,7 +249,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr,"Number of threads must be between 1 and %d.\n", MAX_THREAD);
 		exit(1);
 	}
-	threads = (pthread_t *) malloc_np(nThreads * sizeof(pthread_t));
+	threads = (pthread_t *) malloc(nThreads * sizeof(pthread_t));
 	pthread_attr_init(&pthread_custom_attr);
 
 #endif // TBB_VERSION
@@ -311,8 +309,8 @@ int main(int argc, char *argv[])
 #ifdef TBB_VERSION
 	  (parm *)memory_parm.allocate(sizeof(parm)*nSwaptions, NULL);
 #else
-	  (parm *)malloc_np(sizeof(parm)*nSwaptions);
-    count = (uint64_t*)malloc_np(sizeof(uint64_t) * nThreads);
+	  (parm *)malloc(sizeof(parm)*nSwaptions);
+    count = (uint64_t*)malloc(sizeof(uint64_t) * nThreads);
 #endif
 
         int k;
@@ -388,7 +386,7 @@ int main(int argc, char *argv[])
           pthread_join(threads[i], NULL);
         }
 
-	free_np(threads);
+	free(threads);
 
 #endif // TBB_VERSION	
 
@@ -416,7 +414,7 @@ int main(int argc, char *argv[])
 #ifdef TBB_VERSION
 	memory_parm.deallocate(swaptions, sizeof(parm));
 #else
-        free_np(swaptions);
+        free(swaptions);
 #endif // TBB_VERSION
 
 	//***********************************************************
