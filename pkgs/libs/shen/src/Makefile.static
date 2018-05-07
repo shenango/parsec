@@ -10,7 +10,7 @@ PREFIX=${PARSECDIR}/pkgs/libs/shen/inst/${PARSECPLAT}
 
 TARGET=libshen.a
 OBJS=shen.o
-INCLUDEDIR=
+INCLUDEDIR=include
 
 
 all: $(OBJS)
@@ -27,6 +27,8 @@ clean:
 install:
 	mkdir -p $(PREFIX)/lib
 	cp -f $(TARGET) $(PREFIX)/lib
+	mkdir -p $(PREFIX)/include
+	cp -rf $(INCLUDEDIR)/* $(PREFIX)/include
 
 .PHONY: all clean install
 
