@@ -6,7 +6,7 @@
 #include <assert.h>
 
 #ifdef ENABLE_PTHREADS
-#include <pthread.h>
+#include "osdep.h"
 #endif //ENABLE_PTHREADS
 
 #ifdef ENABLE_DMALLOC
@@ -24,17 +24,17 @@
 #define ENABLE_SPIN_LOCKS
 
 #ifdef ENABLE_SPIN_LOCKS
-typedef pthread_spinlock_t pthread_lock_t;
-#define PTHREAD_LOCK_INIT(l) pthread_spin_init(l, PTHREAD_PROCESS_PRIVATE)
-#define PTHREAD_LOCK_DESTROY(l) pthread_spin_destroy(l)
-#define PTHREAD_LOCK(l) pthread_spin_lock(l)
-#define PTHREAD_UNLOCK(l) pthread_spin_unlock(l)
+typedef dedup_spinlock_t dedup_lock_t;
+#define PTHREAD_LOCK_INIT(l) dedup_spin_init(l, PTHREAD_PROCESS_PRIVATE)
+#define PTHREAD_LOCK_DESTROY(l) dedup_spin_destroy(l)
+#define PTHREAD_LOCK(l) dedup_spin_lock(l)
+#define PTHREAD_UNLOCK(l) dedup_spin_unlock(l)
 #else
-typedef pthread_mutex_t pthread_lock_t;
-#define PTHREAD_LOCK_INIT(l) pthread_mutex_init(l, NULL)
-#define PTHREAD_LOCK_DESTROY(l) pthread_mutex_destroy(l)
-#define PTHREAD_LOCK(l) pthread_mutex_lock(l)
-#define PTHREAD_UNLOCK(l) pthread_mutex_unlock(l)
+typedef dedup_mutex_t dedup_lock_t;
+#define PTHREAD_LOCK_INIT(l) dedup_mutex_init(l, NULL)
+#define PTHREAD_LOCK_DESTROY(l) dedup_mutex_destroy(l)
+#define PTHREAD_LOCK(l) dedup_mutex_lock(l)
+#define PTHREAD_UNLOCK(l) dedup_mutex_unlock(l)
 #endif //ENABLE_SPIN_LOCKS
 
 //Array with global locks to use. We use many mutexes to achieve some concurrency.
@@ -42,7 +42,7 @@ typedef pthread_mutex_t pthread_lock_t;
 //FIXME: Update documentation with latest changes
 //Unfortunately mutexes cannot be stored inside the memory buffers because of
 //concurrent free operations
-pthread_lock_t *locks = NULL;
+dedup_lock_t *locks = NULL;
 
 //Number of locks to use. More locks means higher potential concurrency, assuming lock usage is reasonably balanced.
 //We use a prime number for that value to get a simple but effective hash function
@@ -62,7 +62,7 @@ int mbuffer_system_init() {
   int i;
 
   assert(locks==NULL);
-  locks = malloc(NUMBER_OF_LOCKS * sizeof(pthread_lock_t));
+  locks = malloc(NUMBER_OF_LOCKS * sizeof(dedup_lock_t));
   if(locks==NULL) return -1;
   for(i=0; i<NUMBER_OF_LOCKS; i++) {
     if(PTHREAD_LOCK_INIT(&locks[i]) != 0) {

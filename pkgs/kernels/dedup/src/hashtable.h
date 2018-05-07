@@ -37,7 +37,7 @@
 #ifndef _HASHTABLE_H_
 #define _HASHTABLE_H_
 
-#include <pthread.h>
+#include "osdep.h"
 #include "config.h"
 
 //WARNING: Dynamic expansion is not thread-safe
@@ -141,7 +141,7 @@ struct hashtable * hashtable_create(
  * accesses to the hash table with this key are thread-safe.
  */
 #ifdef ENABLE_PTHREADS
-pthread_mutex_t * hashtable_getlock(struct hashtable *h, void *k);
+dedup_mutex_t * hashtable_getlock(struct hashtable *h, void *k);
 #endif
 
 /*****************************************************************************

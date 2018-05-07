@@ -9,6 +9,7 @@
 #include "mbuffer.h"
 #include "sha.h"
 
+#include "osdep.h"
 
 #define CHECKBIT 123456
 
@@ -154,8 +155,8 @@ typedef struct _chunk_t {
 #ifdef ENABLE_PTHREADS
     //once a chunk has been added to the global database accesses
     //to the state require synchronization b/c the chunk is globally viewable
-    pthread_mutex_t lock;
-    pthread_cond_t update;
+    dedup_mutex_t lock;
+    dedup_cond_t update;
 #endif //ENABLE_PTHREADS
   } header;
   //The SHA1 sum of the chunk, computed by SHA1/Routing stage from the uncompressed chunk data

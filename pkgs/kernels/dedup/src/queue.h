@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 #ifdef ENABLE_PTHREADS
-#include <pthread.h>
+#include "osdep.h"
 #endif //ENABLE_PTHREADS
 
 //A simple ring buffer that can store a certain number of elements.
@@ -26,8 +26,8 @@ struct _queue_t {
   int nProducers;
   int nTerminated;
 #ifdef ENABLE_PTHREADS
-  pthread_mutex_t mutex;
-  pthread_cond_t notEmpty, notFull;
+  dedup_mutex_t mutex;
+  dedup_cond_t notEmpty, notFull;
 #endif //ENABLE_PTHREADS
 };
 

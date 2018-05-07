@@ -50,7 +50,7 @@
 #endif //ENABLE_BZIP2_COMPRESSION
 
 #ifdef ENABLE_PTHREADS
-#include <pthread.h>
+#include "osdep.h"
 #endif //ENABLE_PTHREADS
 
 #ifdef ENABLE_PARSEC_HOOKS
@@ -264,9 +264,9 @@ static void write_chunk_to_file(int fd, chunk_t *chunk) {
   //Find original chunk
   if(chunk->header.isDuplicate) chunk = chunk->compressed_data_ref;
 
-  pthread_mutex_lock(&chunk->header.lock);
+  dedup_mutex_lock(&chunk->header.lock);
   while(chunk->header.state == CHUNK_STATE_UNCOMPRESSED) {
-    pthread_cond_wait(&chunk->header.update, &chunk->header.lock);
+    dedup_cond_wait(&chunk->header.update, &chunk->header.lock);
   }
 
   //state is now guaranteed to be either COMPRESSED or FLUSHED
@@ -279,7 +279,7 @@ static void write_chunk_to_file(int fd, chunk_t *chunk) {
     //Chunk data has been written to file before, just write SHA1
     write_file(fd, TYPE_FINGERPRINT, SHA1_LEN, (unsigned char *)(chunk->sha1));
   }
-  pthread_mutex_unlock(&chunk->header.lock);
+  dedup_mutex_unlock(&chunk->header.lock);
 }
 #else
 //NOTE: The serial version relies on the fact that chunks are processed in-order,
@@ -314,7 +314,7 @@ void sub_Compress(chunk_t *chunk) {
     assert(chunk!=NULL);
     //compress the item and add it to the database
 #ifdef ENABLE_PTHREADS
-    pthread_mutex_lock(&chunk->header.lock);
+    dedup_mutex_lock(&chunk->header.lock);
     assert(chunk->header.state == CHUNK_STATE_UNCOMPRESSED);
 #endif //ENABLE_PTHREADS
     switch (conf->compress_type) {
@@ -378,8 +378,8 @@ void sub_Compress(chunk_t *chunk) {
 
 #ifdef ENABLE_PTHREADS
     chunk->header.state = CHUNK_STATE_COMPRESSED;
-    pthread_cond_broadcast(&chunk->header.update);
-    pthread_mutex_unlock(&chunk->header.lock);
+    dedup_cond_broadcast(&chunk->header.update);
+    dedup_mutex_unlock(&chunk->header.lock);
 #endif //ENABLE_PTHREADS
 
      return;
@@ -482,8 +482,8 @@ int sub_Deduplicate(chunk_t *chunk) {
 
   //Query database to determine whether we've seen the data chunk before
 #ifdef ENABLE_PTHREADS
-  pthread_mutex_t *ht_lock = hashtable_getlock(cache, (void *)(chunk->sha1));
-  pthread_mutex_lock(ht_lock);
+  dedup_mutex_t *ht_lock = hashtable_getlock(cache, (void *)(chunk->sha1));
+  dedup_mutex_lock(ht_lock);
 #endif
   entry = (chunk_t *)hashtable_search(cache, (void *)(chunk->sha1));
   isDuplicate = (entry != NULL);
@@ -491,8 +491,8 @@ int sub_Deduplicate(chunk_t *chunk) {
   if (!isDuplicate) {
     // Cache miss: Create entry in hash table and forward data to compression stage
 #ifdef ENABLE_PTHREADS
-    pthread_mutex_init(&chunk->header.lock, NULL);
-    pthread_cond_init(&chunk->header.update, NULL);
+    dedup_mutex_init(&chunk->header.lock, NULL);
+    dedup_cond_init(&chunk->header.update, NULL);
 #endif
     //NOTE: chunk->compressed_data.buffer will be computed in compression stage
     if (hashtable_insert(cache, (void *)(chunk->sha1), (void *)chunk) == 0) {
@@ -504,7 +504,7 @@ int sub_Deduplicate(chunk_t *chunk) {
     mbuffer_free(&chunk->uncompressed_data);
   }
 #ifdef ENABLE_PTHREADS
-  pthread_mutex_unlock(ht_lock);
+  dedup_mutex_unlock(ht_lock);
 #endif
 
   return isDuplicate;
@@ -1462,7 +1462,7 @@ void Encode(config_t * _conf) {
   /* Variables for 3 thread pools and 2 pipeline stage threads.
    * The first and the last stage are serial (mostly I/O).
    */
-  pthread_t threads_anchor[MAX_THREADS],
+  dedup_thread_t threads_anchor[MAX_THREADS],
     threads_chunk[MAX_THREADS],
     threads_compress[MAX_THREADS],
     threads_send, threads_process;
@@ -1476,32 +1476,32 @@ void Encode(config_t * _conf) {
 #endif
 
   //thread for first pipeline stage (input)
-  pthread_create(&threads_process, NULL, Fragment, &data_process_args);
+  dedup_thread_create(&threads_process, NULL, Fragment, &data_process_args);
 
   //Create 3 thread pools for the intermediate pipeline stages
   struct thread_args anchor_thread_args[conf->nthreads];
   for (i = 0; i < conf->nthreads; i ++) {
      anchor_thread_args[i].tid = i;
-     pthread_create(&threads_anchor[i], NULL, FragmentRefine, &anchor_thread_args[i]);
+     dedup_thread_create(&threads_anchor[i], NULL, FragmentRefine, &anchor_thread_args[i]);
   }
 
   struct thread_args chunk_thread_args[conf->nthreads];
   for (i = 0; i < conf->nthreads; i ++) {
     chunk_thread_args[i].tid = i;
-    pthread_create(&threads_chunk[i], NULL, Deduplicate, &chunk_thread_args[i]);
+    dedup_thread_create(&threads_chunk[i], NULL, Deduplicate, &chunk_thread_args[i]);
   }
 
   struct thread_args compress_thread_args[conf->nthreads];
   for (i = 0; i < conf->nthreads; i ++) {
     compress_thread_args[i].tid = i;
-    pthread_create(&threads_compress[i], NULL, Compress, &compress_thread_args[i]);
+    dedup_thread_create(&threads_compress[i], NULL, Compress, &compress_thread_args[i]);
   }
 
   //thread for last pipeline stage (output)
   struct thread_args send_block_args;
   send_block_args.tid = 0;
   send_block_args.nqueues = nqueues;
-  pthread_create(&threads_send, NULL, Reorder, &send_block_args);
+  dedup_thread_create(&threads_send, NULL, Reorder, &send_block_args);
 
   /*** parallel phase ***/
 
@@ -1511,14 +1511,14 @@ void Encode(config_t * _conf) {
   stats_t *threads_compress_rv[conf->nthreads];
 
   //join all threads 
-  pthread_join(threads_process, NULL);
+  dedup_thread_join(threads_process, NULL);
   for (i = 0; i < conf->nthreads; i ++)
-    pthread_join(threads_anchor[i], (void **)&threads_anchor_rv[i]);
+    dedup_thread_join(threads_anchor[i], (void **)&threads_anchor_rv[i]);
   for (i = 0; i < conf->nthreads; i ++)
-    pthread_join(threads_chunk[i], (void **)&threads_chunk_rv[i]);
+    dedup_thread_join(threads_chunk[i], (void **)&threads_chunk_rv[i]);
   for (i = 0; i < conf->nthreads; i ++)
-    pthread_join(threads_compress[i], (void **)&threads_compress_rv[i]);
-  pthread_join(threads_send, NULL);
+    dedup_thread_join(threads_compress[i], (void **)&threads_compress_rv[i]);
+  dedup_thread_join(threads_send, NULL);
 
 #ifdef ENABLE_PARSEC_HOOKS
   __parsec_roi_end();

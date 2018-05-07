@@ -87,10 +87,10 @@ struct hashtable * hashtable_create(unsigned int minsize,
   h->tablelength  = size;
 #ifdef ENABLE_PTHREADS
   //allocate and initialize array with locks
-  h->locks = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t) * size);
+  h->locks = (dedup_mutex_t *)malloc(sizeof(dedup_mutex_t) * size);
   if(NULL == h->locks) {free(h->table); free(h); return NULL;} /*oom*/
   for(pindex=0; pindex<size; pindex++) {
-    pthread_mutex_init(&(h->locks[pindex]), NULL);
+    dedup_mutex_init(&(h->locks[pindex]), NULL);
   }
 #endif
 #ifdef ENABLE_DYNAMIC_EXPANSION
@@ -118,7 +118,7 @@ unsigned int hash(struct hashtable *h, void *k) {
 
 #ifdef ENABLE_PTHREADS
 /*****************************************************************************/
-pthread_mutex_t * hashtable_getlock(struct hashtable *h, void *k) {
+dedup_mutex_t * hashtable_getlock(struct hashtable *h, void *k) {
   unsigned int hashvalue, index;
 
   hashvalue = hash(h,k);
@@ -303,7 +303,7 @@ void hashtable_destroy(struct hashtable *h, int free_values) {
   }
 #ifdef ENABLE_PTHREADS
   for(i=0; i<h->tablelength; i++) {
-    pthread_mutex_destroy(&(h->locks[i]));
+    dedup_mutex_destroy(&(h->locks[i]));
   }
   free(h->locks);
 #endif
