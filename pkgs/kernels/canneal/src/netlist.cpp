@@ -26,11 +26,11 @@
 // OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 // SUCH DAMAGE.
 
+#include "rng.h"
 
 #include "location_t.h"
 #include "netlist.h"
 #include "netlist_elem.h"
-#include "rng.h"
 
 #include <fstream>
 #include <iostream>

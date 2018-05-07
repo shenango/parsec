@@ -30,11 +30,15 @@
 #ifndef RNG_H
 #define RNG_H
 
-#include <vector>
 
 #ifdef ENABLE_THREADS
+#ifndef SHENANGO
 #include <pthread.h>
+#else
+#include <sync.h>
 #endif
+#endif
+#include <vector>
 
 #include "MersenneTwister.h"
 
@@ -43,9 +47,15 @@ class Rng
 public:
 	Rng() {
 #ifdef ENABLE_THREADS
+#ifndef SHENANGO
 		pthread_mutex_lock(&seed_lock);
 		_rng = new MTRand(seed++);
 		pthread_mutex_unlock(&seed_lock);
+#else
+		seed_lock.Lock();
+		_rng = new MTRand(seed++);
+		seed_lock.Unlock();
+#endif
 #else
 		_rng = new MTRand(seed++);
 #endif //ENABLE_THREADS
@@ -59,7 +69,11 @@ public:
 protected:
 	//use same random seed for each run
 	static unsigned int seed;
+#ifndef SHENANGO
 	static pthread_mutex_t seed_lock;
+#else
+	static rt::Mutex seed_lock;
+#endif
 	MTRand *_rng;
 };
 

@@ -32,7 +32,23 @@
 #define ANNEALER_THREAD_H
 
 #ifdef ENABLE_THREADS
+#ifndef SHENANGO
 #include <pthread.h>
+
+#define annealer_barrier_t pthread_barrier_t
+#define annealer_barrier_init pthread_barrier_init
+#define annealer_barrier_destroy pthread_barrier_destroy
+#define annealer_barrier_wait pthread_barrier_wait
+
+#else
+#include <shen.h>
+
+#define annealer_barrier_t barrier_t
+#define annealer_barrier_init(a,b,c) barrier_init(a,c)
+#define annealer_barrier_destroy barrier_destroy
+#define annealer_barrier_wait barrier_wait
+
+#endif
 #endif
 
 #include <assert.h>
@@ -66,13 +82,13 @@ public:
 	{
 		assert(_netlist != NULL);
 #ifdef ENABLE_THREADS
-		pthread_barrier_init(&_barrier, NULL, nthreads);
+		annealer_barrier_init(&_barrier, NULL, nthreads);
 #endif
 	};
 	
 	~annealer_thread() {
 #ifdef ENABLE_THREADS
-		pthread_barrier_destroy(&_barrier);
+		annealer_barrier_destroy(&_barrier);
 #endif
 	}					
 	void Run();
@@ -89,7 +105,7 @@ protected:
 	int _start_temp;
 	int _number_temp_steps;
 #ifdef ENABLE_THREADS
-	pthread_barrier_t _barrier;
+	annealer_barrier_t _barrier;
 #endif
 };
 

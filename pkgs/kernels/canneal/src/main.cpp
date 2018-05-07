@@ -35,7 +35,12 @@
 #include <vector>
 
 #ifdef ENABLE_THREADS
+#ifndef SHENANGO
 #include <pthread.h>
+#else
+
+#include <thread.h>
+#endif
 #endif
 
 #ifdef ENABLE_PARSEC_HOOKS
@@ -52,8 +57,12 @@ using namespace std;
 void* entry_pt(void*);
 
 
-
+#ifdef SHENANGO
+static int argc;
+int _main(char * const argv[]) {
+#else
 int main (int argc, char * const argv[]) {
+#endif
 #ifdef PARSEC_VERSION
 #define __PARSEC_STRING(x) #x
 #define __PARSEC_XSTRING(x) __PARSEC_STRING(x)
@@ -110,6 +119,7 @@ int main (int argc, char * const argv[]) {
 	__parsec_roi_begin();
 #endif
 #ifdef ENABLE_THREADS
+#ifndef SHENANGO
 	std::vector<pthread_t> threads(num_threads);
 	void* thread_in = static_cast<void*>(&a_thread);
 	for(int i=0; i<num_threads; i++){
@@ -118,6 +128,17 @@ int main (int argc, char * const argv[]) {
 	for (int i=0; i<num_threads; i++){
 		pthread_join(threads[i], NULL);
 	}
+#else
+	std::vector<rt::Thread> threads;
+	for(int i=0; i<num_threads; i++) {
+		threads.emplace_back([&] {
+			a_thread.Run();
+		});
+	}
+	for(int i=0; i<num_threads; i++) {
+		threads[i].Join();
+	}
+#endif
 #else
 	a_thread.Run();
 #endif
@@ -139,3 +160,23 @@ void* entry_pt(void* data)
 	annealer_thread* ptr = static_cast<annealer_thread*>(data);
 	ptr->Run();
 }
+
+#ifdef SHENANGO
+int main(int argcount, char **argv)
+{
+    int ret;
+
+    if (argcount < 2) {
+         printf("arg must be config file\n");
+         return -EINVAL;
+    }
+
+    char *cfgpath = argv[1];
+    argv[1] = argv[0];
+
+    argc = argcount - 1;
+
+    ret = runtime_init(cfgpath, _main, argv + 1);
+
+}
+#endif

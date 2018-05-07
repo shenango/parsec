@@ -33,8 +33,12 @@
 
 //global seed used for rng initialization
 unsigned int Rng::seed = 0;
-#ifdef ENABLE_THREADS  
+#ifdef ENABLE_THREADS
+#ifndef SHENANGO
 pthread_mutex_t Rng::seed_lock = PTHREAD_MUTEX_INITIALIZER;
+#else
+rt::Mutex Rng::seed_lock;
+#endif
 #endif
 
 //actually declare the static member of the class.  C++ can be ugly sometimes

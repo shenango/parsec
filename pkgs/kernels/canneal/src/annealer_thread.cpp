@@ -26,12 +26,9 @@
 // OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 // SUCH DAMAGE.
 
-#ifdef ENABLE_THREADS
-#include <pthread.h>
-#endif
-
-#include <cassert>
 #include "annealer_thread.h"
+#include <cassert>
+
 #include "location_t.h"
 #include "annealer_types.h"
 #include "netlist_elem.h"
@@ -87,7 +84,7 @@ void annealer_thread::Run()
 		}
 		temp_steps_completed++;
 #ifdef ENABLE_THREADS
-		pthread_barrier_wait(&_barrier);
+		annealer_barrier_wait(&_barrier);
 #endif
 	}
 }
