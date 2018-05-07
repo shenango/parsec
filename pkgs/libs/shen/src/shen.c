@@ -96,3 +96,60 @@ void barrier_destroy(barrier_t *barrier)
 	free(barrier->waiters);
 }
 
+struct join_handle {	
+    void *(*fn) (void *);	
+    void *args;	
+    void *retval;	
+    spinlock_t    lock;	
+    thread_t    *waiter;	
+};
+
+static void thread_trampoline(void *arg)
+{
+	struct join_handle *j = arg;
+
+	j->retval = j->fn(j->args);
+	spin_lock_np(&j->lock);
+	if (j->waiter != NULL) {
+		thread_ready(j->waiter);
+	}
+	j->waiter = thread_self();
+	thread_park_and_unlock_np(&j->lock);
+}
+
+int thread_spawn_joinable(struct join_handle **handle, void *(*fn) (void *), void *arg)
+{
+	struct join_handle *j;
+	thread_t *t = thread_create_with_buf(thread_trampoline, (void **)&j,	
+                                      sizeof(struct join_handle));
+	if (t == NULL)
+		return -ENOMEM;
+
+	j->fn = fn;
+	j->args = arg;
+	spin_lock_init(&j->lock);
+	j->waiter = NULL;
+
+	if (handle)
+		*handle = j;
+
+
+	thread_ready(t);
+	return 0;
+
+}
+
+void thread_join(struct join_handle *j, void **retval)
+{
+	spin_lock_np(&j->lock);
+	if (j->waiter == NULL) {
+		j->waiter = thread_self();
+		thread_park_and_unlock_np(&j->lock);
+		spin_lock_np(&j->lock);
+	}
+	if (retval)
+		*retval = j->retval;
+	spin_unlock_np(&j->lock);
+	thread_ready(j->waiter);
+}
+

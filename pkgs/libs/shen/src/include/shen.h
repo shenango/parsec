@@ -21,6 +21,10 @@ int barrier_init(barrier_t *barrier, uint64_t count);
 int barrier_wait(barrier_t *barrier);
 void barrier_destroy(barrier_t *barrier);
 
+struct join_handle;
+int thread_spawn_joinable(struct join_handle **handle, void *(*fn) (void *), void *arg);
+void thread_join(struct join_handle *handle, void **retval);
+
 #ifdef __cplusplus
 }
 #endif
