@@ -82,7 +82,7 @@ public:
 	//Constructors
 	ParticleFilter()							{mMinParticles = 5; mInitialized = false;};			
 	ParticleFilter(T &model)					{mModel = &model; mMinParticles = 5; mInitialized = false;}; 
-	virtual ~ParticleFilter() {};									
+	virtual ~ParticleFilter() throw (std::exception) {};
 
 	//Get Functions
 	T &Model()									{return *mModel; };

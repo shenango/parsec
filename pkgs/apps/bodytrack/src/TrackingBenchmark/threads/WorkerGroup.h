@@ -48,7 +48,7 @@ class WorkerGroupCommandRangeException: public WorkerGroupCommandException {
 
 class Threadable {
   public:
-    virtual ~Threadable() {};
+    virtual ~Threadable() throw(std::exception) {};
     //Thread objects will call the Exec() method and will pass the command and the rank of the thread
     virtual void Exec(thread_cmd_t, thread_rank_t) =0;
 };
@@ -85,7 +85,7 @@ class WorkerGroup: protected ThreadGroup, protected Runnable {
     //constructor
     WorkerGroup(int nThreads);
     //destructor
-    ~WorkerGroup();
+    ~WorkerGroup() throw(std::exception);
 
     //Add a new cmd -> object/function mapping to the pool
     void RegisterCmd(int _cmd, Threadable &obj);

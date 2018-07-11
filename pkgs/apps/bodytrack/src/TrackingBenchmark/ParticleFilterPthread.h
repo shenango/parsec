@@ -54,7 +54,7 @@ public:
 	//constructor
 	ParticleFilterPthread(WorkPoolPthread &);
 	//destructor
-	~ParticleFilterPthread();
+	~ParticleFilterPthread() throw (std::exception);
 
 	//entry function for worker threads
 	void Exec(threads::thread_cmd_t, threads::thread_rank_t);
@@ -93,7 +93,7 @@ ParticleFilterPthread<T>::ParticleFilterPthread(WorkPoolPthread &_workers) : wor
 
 //constructor
 template<class T>
-ParticleFilterPthread<T>::~ParticleFilterPthread()
+ParticleFilterPthread<T>::~ParticleFilterPthread() throw (std::exception)
 {
 	delete workInit;
 }

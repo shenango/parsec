@@ -28,7 +28,7 @@ namespace threads {
 //The thread class constructor requires a threadable object to instantiate a thread object
 class Runnable {
   public:
-    virtual ~Runnable() {};
+    virtual ~Runnable() throw(std::exception) {};
     //Thread objects will call the Run() method of its associated Runnable class
     virtual void Run() =0;
 };

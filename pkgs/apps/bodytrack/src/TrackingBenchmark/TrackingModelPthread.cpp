@@ -231,7 +231,7 @@ bool TrackingModelPthread::GetObservation(float timeval)
 	return true;
 }
 
-TrackingModelPthread::~TrackingModelPthread()
+TrackingModelPthread::~TrackingModelPthread() throw (std::exception)
 {
 	delete IOthread;
 }

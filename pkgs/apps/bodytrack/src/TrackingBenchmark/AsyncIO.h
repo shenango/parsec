@@ -57,7 +57,7 @@ public:
 	{	mImageBuffer.resize(0); 
 	};
 
-	~AsyncImageLoader() {};
+	~AsyncImageLoader() throw(std::exception) {};
 
 	//thread code
 	void Run();

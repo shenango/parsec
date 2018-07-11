@@ -38,7 +38,7 @@ class TrackingModelPthread : public TrackingModel, public threads::Threadable {
 public:
 	//constructor
 	TrackingModelPthread(WorkPoolPthread &_workers);
-	~TrackingModelPthread();
+	~TrackingModelPthread() throw(std::exception);
 
 	//Generate an edge map from the original camera image
 	void CreateEdgeMap(FlexImage8u &src, FlexImage8u &dst);

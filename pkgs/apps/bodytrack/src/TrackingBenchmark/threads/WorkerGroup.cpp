@@ -40,7 +40,7 @@ WorkerGroup::WorkerGroup(int nThreads) : cmd(THREADS_IDLE), workAvailable(workDi
 }
 
 //destructor
-WorkerGroup::~WorkerGroup() {
+WorkerGroup::~WorkerGroup() throw(std::exception) {
   delete workDoneBarrier;
   delete poolReadyBarrier;
 }

@@ -19,7 +19,7 @@ namespace threads {
 //A generic lock
 class LockType {
   public:
-    virtual ~LockType() {};
+    virtual ~LockType() throw(std::exception) {};
 
     //Enter a critical region
     virtual void Lock() =0;
@@ -32,7 +32,7 @@ class LockType {
 //A read-write lock
 class RWLockType: public LockType {
   public:
-    virtual ~RWLockType() {};
+    virtual ~RWLockType() throw(std::exception) {};
 
     //Enter a critical region for reading
     virtual void ReadLock() =0;
