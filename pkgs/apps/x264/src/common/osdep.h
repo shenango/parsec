@@ -85,49 +85,16 @@
 
 /* threads */
 #if defined(SYS_BEOS)
-#error
-
-#elif defined(SHENANGO)
-
-#include <base/cpu.h>
-#include <runtime/sync.h>
-#include <runtime/thread.h>
-#include <runtime/timer.h>
-
-#include <shen.h>
-
-#undef assert
-#define assert(x) BUG_ON(!(x))
-
-#define x264_pthread_t              struct join_handle *
-#define x264_pthread_create(a,b,c,d) { \
-    assert(b == NULL); \
-    thread_spawn_joinable(a,c,d); \
-}
-#define x264_pthread_join           thread_join
-
-
-#define x264_pthread_mutex_t         mutex_t
-#define x264_pthread_mutex_init(m,a) { \
-    BUG_ON(a != NULL); \
-    mutex_init(m); \
-}
-
-#define x264_pthread_mutex_destroy
-#define x264_pthread_mutex_lock      mutex_lock
-#define x264_pthread_mutex_unlock    mutex_unlock
-#define x264_pthread_cond_t          condvar_t
-#define x264_pthread_cond_init(c,a) { \
-    BUG_ON(a != NULL); \
-    condvar_init(c); \
-}
-
-#define x264_pthread_cond_destroy
-#define x264_pthread_cond_broadcast  condvar_broadcast
-#define x264_pthread_cond_wait       condvar_wait
-
-#define usleep timer_sleep
-
+#include <kernel/OS.h>
+#define x264_pthread_t               thread_id
+#define x264_pthread_create(t,u,f,d) { *(t)=spawn_thread(f,"",10,d); \
+                                       resume_thread(*(t)); }
+#define x264_pthread_join(t,s)       { long tmp; \
+                                       wait_for_thread(t,(s)?(long*)(s):&tmp); }
+#ifndef usleep
+#define usleep(t)                    snooze(t)
+#endif
+#define HAVE_PTHREAD 1
 
 #elif defined(HAVE_PTHREAD)
 #include <pthread.h>
@@ -135,14 +102,11 @@
 
 #else
 #define x264_pthread_t               int
-#define x264_pthread_create(t,u,f,d) {assert(0);}
-#define x264_pthread_join(t,s) {assert(0);}
+#define x264_pthread_create(t,u,f,d)
+#define x264_pthread_join(t,s)
 #endif //SYS_*
 
-#ifdef SHENANGO
-
-
-#elif defined USE_REAL_PTHREAD
+#ifdef USE_REAL_PTHREAD
 #define x264_pthread_t               pthread_t
 #define x264_pthread_create          pthread_create
 #define x264_pthread_join            pthread_join
@@ -167,13 +131,6 @@
 #define x264_pthread_cond_destroy(c)
 #define x264_pthread_cond_broadcast(c)
 #define x264_pthread_cond_wait(c,m)
-#endif
-
-#ifndef SHENANGO
-
-#define preempt_enable()
-#define preempt_disable()
-
 #endif
 
 #define WORD_SIZE sizeof(void*)

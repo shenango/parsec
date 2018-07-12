@@ -85,16 +85,10 @@ static void Help( x264_param_t *defaults, int b_longhelp );
 static int  Parse( int argc, char **argv, x264_param_t *param, cli_opt_t *opt );
 static int  Encode( x264_param_t *param, cli_opt_t *opt );
 
-
 /****************************************************************************
  * main:
  ****************************************************************************/
-#ifdef SHENANGO
-static int argc;
-int _main( char **argv )
-#else
 int main( int argc, char **argv )
-#endif
 {
     x264_param_t param;
     cli_opt_t opt;
@@ -950,23 +944,3 @@ static int  Encode( x264_param_t *param, cli_opt_t *opt )
 
     return 0;
 }
-
-#ifdef SHENANGO
-int main(int argcount, char **argv)
-{
-    int ret;
-
-    if (argcount < 2) {
-         printf("arg must be config file\n");
-         return -EINVAL;
-    }
-
-    char *cfgpath = argv[1];
-    argv[1] = argv[0];
-
-    argc = argcount - 1;
-
-    ret = runtime_init(cfgpath, _main, argv + 1);
-
-}
-#endif
