@@ -55,7 +55,7 @@ protected:
     }
 
   ~MultiThreadedTaskQueueServer() {
-    clean(false);
+    // clean(false);
   }
 
   _INLINE void clean(bool force_exit_from_thread_function = true) {
