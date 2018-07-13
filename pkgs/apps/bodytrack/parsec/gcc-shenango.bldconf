@@ -18,7 +18,7 @@
 build_deps=""
 
 # Environment to use for configure script and Makefile
-build_env="MAKEFLAGS=-j CXXFLAGS=\"${CXXFLAGS} -fexceptions\""
+build_env="MAKEFLAGS=-j CXXFLAGS=\"${SHEN_CXXFLAGS} ${CXXFLAGS} -fexceptions\" LDFLAGS=\"${SHEN_LDFLAGS} ${LDFLAGS}\" LIBS=\"${SHEN_LIBS} ${LIBS}\""
 
 # Whether the build system supports only in-place compilation.
 # If TRUE, then all sources will be copied to the build directory before we
