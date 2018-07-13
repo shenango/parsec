@@ -18,10 +18,10 @@
 build_deps="gsl libjpeg"
 
 # Temporary variable with all flags
-ferret_flags="CFLAGS=\"-I${PARSECDIR}/pkgs/libs/gsl/inst/${PARSECPLAT}/include -I${PARSECDIR}/pkgs/libs/libjpeg/inst/${PARSECPLAT}/include ${CFLAGS}\" LDFLAGS=\"-L${PARSECDIR}/pkgs/libs/gsl/inst/${PARSECPLAT}/lib -L${PARSECDIR}/pkgs/libs/libjpeg/inst/${PARSECPLAT}/lib ${LDFLAGS}\""
+ferret_flags="MAKEFLAGS=-j CFLAGS=\"-I${PARSECDIR}/pkgs/libs/gsl/inst/${PARSECPLAT}/include -I${PARSECDIR}/pkgs/libs/libjpeg/inst/${PARSECPLAT}/include ${SHEN_CLAGS} ${CFLAGS}\" LDFLAGS=\"-L${PARSECDIR}/pkgs/libs/gsl/inst/${PARSECPLAT}/lib -L${PARSECDIR}/pkgs/libs/libjpeg/inst/${PARSECPLAT}/lib ${SHEN_LDFLAGS} ${LDFLAGS}\" LIBS=\"${SHEN_LIBS} ${LIBS}\""
 
 # Environment to use for configure script and Makefile
-build_env="MAKEFLAGS=-j version=\"pthreads\" ${ferret_flags}"
+build_env="version=\"pthreads\" ${ferret_flags}"
 
 # Whether the build system supports only in-place compilation.
 # If TRUE, then all sources will be copied to the build directory before we
