@@ -20,24 +20,9 @@
 #include <chrono>
 #include <thread>
 
-#ifndef SHENANGO
 #include <pthread.h>
 
 #define MAX_THREAD 1024
-#else
-
-#include <vector>
-#include <thread.h>
-#include <timer.h>
-
-extern "C" {
-#include <base/log.h>
-#undef min
-#undef max
-}
-
-#define MAX_THREAD 102400
-#endif
 
 #ifdef TBB_VERSION
 #include "tbb/task_scheduler_init.h"
@@ -118,7 +103,7 @@ static void *print_progress(void *arg) {
     last_time = now;
     last_total = total;
 
-    std::this_thread::sleep_for(std::chrono::seconds(5));
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
   }
   return NULL;
@@ -157,8 +142,8 @@ void * worker(void *arg){
        swaptions[i].dSimSwaptionMeanPrice = pdSwaptionPrice[0];
        swaptions[i].dSimSwaptionStdError = pdSwaptionPrice[1];  
        count[tid]++;
-#ifdef SHENANGO
-       rt::Yield();
+#if SHENANGO
+       sched_yield();
 #endif
      }
 
@@ -182,12 +167,8 @@ void print_usage(char *name) {
 //For instance, if X/Y = 0.999 then (int) (X/Y) will equal 0 and not 1 (as (int) rounds down).
 //Adding 0.5 ensures that this does not happen. Therefore we use (int) (X/Y + 0.5); instead of (int) (X/Y);
 
-#ifdef SHENANGO
-int argc;
-int _main(char *argv[])
-#else
+
 int main(int argc, char *argv[])
-#endif
 {
 	int iSuccess = 0;
 	int i,j;
@@ -238,8 +219,6 @@ int main(int argc, char *argv[])
 
 #ifdef TBB_VERSION
 	tbb::task_scheduler_init init(nThreads);
-#elif SHENANGO
-
 #else
 	pthread_t      *threads;
 	pthread_attr_t  pthread_custom_attr;
@@ -349,28 +328,6 @@ int main(int argc, char *argv[])
 	Worker w;
 	tbb::parallel_for(tbb::blocked_range<int>(0,nSwaptions,TBB_GRAINSIZE),w);  
 
-#elif SHENANGO
-  int threadIDs[nThreads];
-  std::vector<rt::Thread> threads;
-  threads.reserve(nThreads);
-
-  for (i = 0; i < nThreads; i++) {
-    threadIDs[i] = i;
-    threads.emplace_back([i, &threadIDs]() {
-        worker(&threadIDs[i]);
-    });
-  }
-
-  std::thread([&](){
-      print_progress(NULL);
-  }).detach();
-
-
-
-  for (i = 0; i < nThreads; i++) {
-    threads[i].Join();
-  }
-
 #else
 	int threadIDs[nThreads];
         for (i = 0; i < nThreads; i++) {
@@ -427,22 +384,3 @@ int main(int argc, char *argv[])
 }
 
 
-#ifdef SHENANGO
-int main(int argcount, char **argv)
-{
-    int ret;
-
-    if (argcount < 2) {
-         printf("arg must be config file\n");
-         return -EINVAL;
-    }
-
-    char *cfgpath = argv[1];
-    argv[1] = argv[0];
-
-    argc = argcount - 1;
-
-    ret = runtime_init(cfgpath, _main, argv + 1);
-
-}
-#endif
