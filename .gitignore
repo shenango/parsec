@@ -3,3 +3,5 @@
 **/inst/
 **/run/
 *.swp
+
+input_native.tar
