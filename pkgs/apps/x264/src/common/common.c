@@ -621,10 +621,8 @@ static void x264_log_default( void *p_unused, int i_level, const char *psz_fmt, 
             psz_prefix = "unknown";
             break;
     }
-    preempt_disable();
     fprintf( stderr, "x264 [%s]: ", psz_prefix );
     vfprintf( stderr, psz_fmt, arg );
-    preempt_enable();
 }
 
 /****************************************************************************

@@ -271,10 +271,7 @@ void x264_emms( void )
 
 int x264_cpu_num_processors( void )
 {
-#if defined(SHENANGO)
-    return cpu_count;
-
-#elif !defined(HAVE_PTHREAD)
+#if !defined(HAVE_PTHREAD)
     return 1;
 
 #elif defined(_WIN32)
