@@ -143,7 +143,7 @@ void * worker(void *arg){
        swaptions[i].dSimSwaptionStdError = pdSwaptionPrice[1];  
        count[tid]++;
 #if SHENANGO
-       sched_yield();
+       pthread_yield();
 #endif
      }
 
