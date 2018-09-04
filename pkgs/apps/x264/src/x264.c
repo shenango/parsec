@@ -813,9 +813,8 @@ static int  Encode( x264_param_t *param, cli_opt_t *opt )
     int64_t i_file;
     int     i_frame_size;
     int     i_update_interval;
-    char    buf[200];
 
-    opt->b_progress &= param->i_log_level < X264_LOG_DEBUG;
+    opt->b_progress = 1;
     i_frame_total = p_get_frame_total( opt->hin );
     i_frame_total -= opt->i_seek;
     if( ( i_frame_total == 0 || param->i_frame_total < i_frame_total )
@@ -823,7 +822,7 @@ static int  Encode( x264_param_t *param, cli_opt_t *opt )
         i_frame_total = param->i_frame_total;
     param->i_frame_total = i_frame_total;
 
-    i_update_interval = i_frame_total ? x264_clip3( i_frame_total / 10, 1, 10 ) : 10;
+    i_update_interval = i_frame_total ? x264_clip3( i_frame_total / 4, 1, 128 ) : 1;
     if( ( h = x264_encoder_open( param ) ) == NULL )
     {
         fprintf( stderr, "x264 [error]: x264_encoder_open failed\n" );
@@ -881,17 +880,14 @@ static int  Encode( x264_param_t *param, cli_opt_t *opt )
             if( i_frame_total )
             {
                 int eta = i_elapsed * (i_frame_total - i_frame) / ((int64_t)i_frame * 1000000);
-                sprintf( buf, "x264 [%.1f%%] %d/%d frames, %.2f fps, %.2f kb/s, eta %d:%02d:%02d",
+                fprintf( stderr, "x264 [%.1f%%] %d/%d frames, %.2f fps, %.2f kb/s, eta %d:%02d:%02d\n",
                          100. * i_frame / i_frame_total, i_frame, i_frame_total, fps, bitrate,
                          eta/3600, (eta/60)%60, eta%60 );
             }
             else
             {
-                sprintf( buf, "x264 %d frames: %.2f fps, %.2f kb/s", i_frame, fps, bitrate );
+                fprintf( stderr, "x264 %d frames: %.2f fps, %.2f kb/s\n", i_frame, fps, bitrate );
             }
-            fprintf( stderr, "%s  \r", buf+5 );
-            SetConsoleTitle( buf );
-            fflush( stderr ); // needed in windows
         }
     }
     /* Flush delayed B-frames */
@@ -906,16 +902,6 @@ static int  Encode( x264_param_t *param, cli_opt_t *opt )
 #endif
 
     i_end = x264_mdate();
-
-        if( i_frame > 0 )
-    {
-        double fps = (double)i_frame * (double)1000000 /
-                     (double)( i_end - i_start );
-
-        fprintf( stderr, "encoded %d frames, %.2f fps, %.2f kb/s\n", i_frame, fps,
-                 (double) i_file * 8 * param->i_fps_num /
-                 ( (double) param->i_fps_den * i_frame * 1000 ) );
-    }
 
     }
     x264_picture_clean( &pic );
