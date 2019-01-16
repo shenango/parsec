@@ -10,6 +10,7 @@ fi
 source ${PARSECDIR}/config/gcc.bldconf
 
 SHEN_LDFLAGS="-L${SHENANGODIR}/ -T ${SHENANGODIR}/base/base.ld -no-pie"
-SHEN_LIBS="-Wl,--wrap=main ${SHENANGODIR}/shim/libshim.a ${SHENANGODIR}/bindings/cc/librt++.a ${SHENANGODIR}/libruntime.a ${SHENANGODIR}/libnet.a ${SHENANGODIR}/libbase.a -ldl -lpthread"
+SHEN_LIBS_CXX="-Wl,--wrap=main ${SHENANGODIR}/shim/libshim.a ${SHENANGODIR}/bindings/cc/librt++.a ${SHENANGODIR}/libruntime.a ${SHENANGODIR}/libnet.a ${SHENANGODIR}/libbase.a -ldl -lpthread"
+SHEN_LIBS="-Wl,--wrap=main ${SHENANGODIR}/shim/libshim.a ${SHENANGODIR}/libruntime.a ${SHENANGODIR}/libnet.a ${SHENANGODIR}/libbase.a -ldl -lpthread"
 SHEN_CFLAGS="-DSHENANGO -I${SHENANGODIR}/inc -I ${PARSECDIR}/pkgs/libs/shen/inst/${PARSECPLAT}/include/"
 SHEN_CXXFLAGS="-DSHENANGO -I${SHENANGODIR}/inc -I ${SHENANGODIR}/bindings/cc -I ${PARSECDIR}/pkgs/libs/shen/inst/${PARSECPLAT}/include/"
