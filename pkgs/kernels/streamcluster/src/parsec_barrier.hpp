@@ -20,14 +20,17 @@
 //use the parsec_barrier* replacement calls without the need to touch the source
 //code (other than including this header file), but it makes it harder to understand
 //what is going on
+#ifndef SHENANGO
 #define ENABLE_AUTOMATIC_DROPIN
+#endif
 
 //Whether to allow the use of spinning. If enabled then the barrier implementation
 //will busy-wait on a flag first. After a pre-determined amount of time has passed
 //without any success it will fall back to waiting on a condition variable. Spinning
 //will result in unsynchronized memory accesses to the flag.
+#ifndef SHENANGO
 #define ENABLE_SPIN_BARRIER
-
+#endif
 
 
 #ifdef ENABLE_AUTOMATIC_DROPIN

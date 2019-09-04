@@ -699,6 +699,10 @@ float pspeedy(Points *points, float z, long *kcenter)
 }
 
 #else //!TBB_VERSION
+#ifdef ENABLE_THREADS
+  static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+  static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+#endif
 
 float pspeedy(Points *points, float z, long *kcenter, int pid, pthread_barrier_t* barrier)
 {
@@ -717,10 +721,6 @@ float pspeedy(Points *points, float z, long *kcenter, int pid, pthread_barrier_t
   static double* costs; //cost for each thread. 
   static int i;
 
-#ifdef ENABLE_THREADS
-  static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-  static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
-#endif
 
   /* create center at first point, send it to itself */
   for( int k = k1; k < k2; k++ )    {
@@ -2005,6 +2005,12 @@ int main(int argc, char **argv)
   strcpy(infilename, argv[7]);
   strcpy(outfilename, argv[8]);
   nproc = atoi(argv[9]);
+
+
+#ifdef ENABLE_THREADS
+    pthread_mutex_init(&mutex, NULL);
+    pthread_cond_init(&cond, NULL);
+#endif
 
 
 #ifdef TBB_VERSION
