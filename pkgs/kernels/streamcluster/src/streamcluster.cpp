@@ -1762,11 +1762,11 @@ public:
   }
   size_t read( float* dest, int dim, int num ) {
     size_t count = 0;
-    for( int i = 0; i < num && n > 0; i++ ) {
+    for( int i = 0; i < num ; i++ ) {
       for( int k = 0; k < dim; k++ ) {
 	dest[i*dim + k] = lrand48()/(float)INT_MAX;
       }
-      n--;
+//      n--;
       count++;
     }
     return count;
@@ -1886,7 +1886,7 @@ void streamCluster( PStream* stream,
   long kfinal;
   while(1) {
 
-    size_t numRead  = stream->read(block, dim, chunksize ); 
+    size_t numRead  = stream->read(block, dim, chunksize );
     fprintf(stderr,"read %d points\n",numRead);
 
     if( stream->ferror() || numRead < (unsigned int)chunksize && !stream->feof() ) {
@@ -1954,7 +1954,7 @@ void streamCluster( PStream* stream,
 
   localSearch( &centers, kmin, kmax ,&kfinal ); // parallel
   contcenters(&centers);
-  outcenterIDs( &centers, centerIDs, outfile);
+  // outcenterIDs( &centers, centerIDs, outfile);
 }
 
 int main(int argc, char **argv)
