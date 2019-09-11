@@ -36,6 +36,10 @@ using namespace tbb;
 #include <hooks.h>
 #endif
 
+#include <thread>
+#include <chrono>
+uint64_t count[256 * 8];
+
 using namespace std;
 
 #define MAXNAMESIZE 1024 // max filename length
@@ -955,6 +959,8 @@ double pgain(long x, Points *points, double z, long int *numcenters, int pid, pt
 #ifdef ENABLE_THREADS
   pthread_barrier_wait(barrier);
 #endif
+
+  count[pid * 8]++;
 
   //my block
   long bsize = points->num/nproc;
@@ -2017,6 +2023,28 @@ int main(int argc, char **argv)
   fprintf(stderr,"TBB version. Number of divisions: %d\n",NUM_DIVISIONS);
   tbb::task_scheduler_init init(nproc);
 #endif
+
+
+  auto progress_th = std::thread([&] {
+  uint64_t last_total = 0;
+  auto last_time = std::chrono::high_resolution_clock::now();
+
+  while (1) {
+    uint64_t total = 0;
+    for (int i = 0; i < nproc; i++) total += count[i * 8];
+    auto now = std::chrono::high_resolution_clock::now();
+    auto elapsedMicros = std::chrono::duration_cast<std::chrono::microseconds>(now - last_time).count();
+
+    std::cerr << "iters per second: " << (total - last_total) / (elapsedMicros / 1000000.0) << std::endl;
+    last_time = now;
+    last_total = total;
+
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+
+  }
+
+
+  });
 
 
   srand48(SEED);
