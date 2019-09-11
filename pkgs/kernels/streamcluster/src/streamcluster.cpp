@@ -38,7 +38,7 @@ using namespace tbb;
 
 #include <thread>
 #include <chrono>
-uint64_t count[256 * 8];
+uint64_t count_prog[256 * 8];
 
 using namespace std;
 
@@ -960,7 +960,6 @@ double pgain(long x, Points *points, double z, long int *numcenters, int pid, pt
   pthread_barrier_wait(barrier);
 #endif
 
-  count[pid * 8]++;
 
   //my block
   long bsize = points->num/nproc;
@@ -1162,6 +1161,9 @@ double pgain(long x, Points *points, double z, long int *numcenters, int pid, pt
     //    free(proc_cost_of_opening_x);
     //    free(proc_number_of_centers_to_close);
   }
+
+
+  count_prog[pid * 8] += k2 - k1;
 
   return -gl_cost_of_opening_x;
 }
@@ -1890,10 +1892,14 @@ void streamCluster( PStream* stream,
 
   long IDoffset = 0;
   long kfinal;
+  switch_membership = (bool*)malloc(chunksize*sizeof(bool));
+  is_center = (bool*)calloc(chunksize,sizeof(bool));
+  center_table = (int*)malloc(chunksize*sizeof(int));
+
   while(1) {
 
     size_t numRead  = stream->read(block, dim, chunksize );
-    fprintf(stderr,"read %d points\n",numRead);
+//    fprintf(stderr,"read %d points\n",numRead);
 
     if( stream->ferror() || numRead < (unsigned int)chunksize && !stream->feof() ) {
       fprintf(stderr, "error reading data!\n");
@@ -1905,14 +1911,14 @@ void streamCluster( PStream* stream,
       points.p[i].weight = 1.0;
     }
 
+    if (points.num != chunksize) abort();
+
 #ifdef TBB_VERSION
     switch_membership = (bool*)memoryBool.allocate(points.num*sizeof(bool), NULL);
     is_center = (bool*)calloc(points.num,sizeof(bool));
     center_table = (int*)memoryInt.allocate(points.num*sizeof(int));
 #else
-    switch_membership = (bool*)malloc(points.num*sizeof(bool));
-    is_center = (bool*)calloc(points.num,sizeof(bool));
-    center_table = (int*)malloc(points.num*sizeof(int));
+    memset(is_center, 0, sizeof(bool) * points.num);
 #endif
 
 
@@ -1929,7 +1935,7 @@ void streamCluster( PStream* stream,
       exit(1);
     }
 
-    copycenters(&points, &centers, centerIDs, IDoffset); /* sequential */
+//    copycenters(&points, &centers, centerIDs, IDoffset); /* sequential */
     IDoffset += numRead;
 
 #ifdef TBB_VERSION
@@ -1937,9 +1943,9 @@ void streamCluster( PStream* stream,
     free(is_center);
     memoryInt.deallocate(center_table, sizeof(int));
 #else
-    free(is_center);
-    free(switch_membership);
-    free(center_table);
+//    free(is_center);
+  //  free(switch_membership);
+    //free(center_table);
 #endif
 
     if( stream->feof() ) {
@@ -2031,7 +2037,7 @@ int main(int argc, char **argv)
 
   while (1) {
     uint64_t total = 0;
-    for (int i = 0; i < nproc; i++) total += count[i * 8];
+    for (int i = 0; i < nproc; i++) total += count_prog[i * 8];
     auto now = std::chrono::high_resolution_clock::now();
     auto elapsedMicros = std::chrono::duration_cast<std::chrono::microseconds>(now - last_time).count();
 
