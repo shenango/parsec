@@ -803,6 +803,22 @@ static int  Encode_frame( x264_t *h, hnd_t hout, x264_picture_t *pic )
     return i_file;
 }
 
+static volatile uint64_t frame_count;
+
+static void frame_rate_printer(void)
+{
+    uint64_t last_total = 0;
+    uint64_t last_usec = x264_mdate();
+    while (1) {
+        sleep(1);
+        uint64_t now = x264_mdate();
+        uint64_t total = frame_count;
+        fprintf(stderr, "frame rate: %ld\n", (total - last_total) / ((now - last_usec) / 1000000.0));
+        last_usec = now;
+        last_total = total;
+    }
+}
+
 static int  Encode( x264_param_t *param, cli_opt_t *opt )
 {
     x264_t *h;
@@ -841,6 +857,9 @@ static int  Encode( x264_param_t *param, cli_opt_t *opt )
     /* Create a new pic */
     x264_picture_alloc( &pic, X264_CSP_I420, param->i_width, param->i_height );
 
+    pthread_t progtid;
+    pthread_create(&progtid, NULL, frame_rate_printer, NULL);
+
     while (1) {
 
     i_start = x264_mdate();
@@ -870,25 +889,27 @@ static int  Encode( x264_param_t *param, cli_opt_t *opt )
         i_file += Encode_frame( h, opt->hout, &pic );
 
         i_frame++;
+        frame_count++;
+        sched_yield();
 
         /* update status line (up to 1000 times per input file) */
-        if( opt->b_progress && i_frame % i_update_interval == 0 )
-        {
-            int64_t i_elapsed = x264_mdate() - i_start;
-            double fps = i_elapsed > 0 ? i_frame * 1000000. / i_elapsed : 0;
-            double bitrate = (double) i_file * 8 * param->i_fps_num / ( (double) param->i_fps_den * i_frame * 1000 );
-            if( i_frame_total )
-            {
-                int eta = i_elapsed * (i_frame_total - i_frame) / ((int64_t)i_frame * 1000000);
-                fprintf( stderr, "x264 [%.1f%%] %d/%d frames, %.2f fps, %.2f kb/s, eta %d:%02d:%02d\n",
-                         100. * i_frame / i_frame_total, i_frame, i_frame_total, fps, bitrate,
-                         eta/3600, (eta/60)%60, eta%60 );
-            }
-            else
-            {
-                fprintf( stderr, "x264 %d frames: %.2f fps, %.2f kb/s\n", i_frame, fps, bitrate );
-            }
-        }
+        // if( opt->b_progress && i_frame % i_update_interval == 0 )
+        // {
+        //     int64_t i_elapsed = x264_mdate() - i_start;
+        //     double fps = i_elapsed > 0 ? i_frame * 1000000. / i_elapsed : 0;
+        //     double bitrate = (double) i_file * 8 * param->i_fps_num / ( (double) param->i_fps_den * i_frame * 1000 );
+        //     if( i_frame_total )
+        //     {
+        //         int eta = i_elapsed * (i_frame_total - i_frame) / ((int64_t)i_frame * 1000000);
+        //         fprintf( stderr, "x264 [%.1f%%] %d/%d frames, %.2f fps, %.2f kb/s, eta %d:%02d:%02d\n",
+        //                  100. * i_frame / i_frame_total, i_frame, i_frame_total, fps, bitrate,
+        //                  eta/3600, (eta/60)%60, eta%60 );
+        //     }
+        //     else
+        //     {
+        //         fprintf( stderr, "x264 %d frames: %.2f fps, %.2f kb/s\n", i_frame, fps, bitrate );
+        //     }
+        // }
     }
     /* Flush delayed B-frames */
     do {

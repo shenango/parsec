@@ -132,16 +132,29 @@ typedef struct {
 
 static char *fullbuffer;
 static size_t fullbuffer_size;
+static size_t inflated_buffer_size;
 static size_t seekspot;
+static size_t fakefile_real_frame_count;
+static size_t fakefile_frame_size;
+static size_t fakefile_header_size;
+
+static inline void memread_fake_inflated(void *dbuf, size_t spot, size_t nbytes)
+{
+	size_t real_spot = spot;
+	if (spot + nbytes > fullbuffer_size)
+		real_spot = (spot - fakefile_header_size) % (fullbuffer_size - fakefile_header_size) + fakefile_header_size;
+	assert(real_spot + nbytes <= fullbuffer_size);
+	memcpy(dbuf, fullbuffer + real_spot, nbytes);
+}
 
 static ssize_t fake_fread(void *dbuf, size_t nbytes)
 {
-    ssize_t tocopy = fullbuffer_size - seekspot;
+    ssize_t tocopy = inflated_buffer_size - seekspot;
     if (tocopy < 0)
         tocopy = 0;
     else if (nbytes < tocopy)
         tocopy = nbytes;
-    memcpy(dbuf, fullbuffer + seekspot, tocopy);
+    memread_fake_inflated(dbuf, seekspot, tocopy);
     seekspot += tocopy;
     return tocopy;
 }
@@ -184,7 +197,7 @@ int open_file_y4m( char *psz_filename, hnd_t *p_handle, x264_param_t *p_param )
         if (stat(psz_filename, &filestat) < 0) {
             return -1;
         }
-        fullbuffer_size = filestat.st_size;
+        fullbuffer_size = inflated_buffer_size = filestat.st_size;
         fullbuffer = malloc(fullbuffer_size);
         if (!fullbuffer) {
             return -1;
@@ -293,6 +306,7 @@ int open_file_y4m( char *psz_filename, hnd_t *p_handle, x264_param_t *p_param )
         }
     }
 
+    inflate_size((hnd_t)h);
     fprintf(stderr, "yuv4mpeg: %ix%i@%i/%ifps, %i:%i\n",
             h->width, h->height, p_param->i_fps_num, p_param->i_fps_den,
             p_param->vui.i_sar_width, p_param->vui.i_sar_height);
@@ -307,11 +321,21 @@ int get_frame_total_y4m( hnd_t handle )
     y4m_input_t *h             = handle;
     int          i_frame_total = 0;
 
-    i_frame_total = (int)((fullbuffer_size - h->seq_header_len) /
+    i_frame_total = (int)((inflated_buffer_size - h->seq_header_len) /
                           (3*(h->width*h->height)/2+h->frame_header_len));
 
     return i_frame_total;
 }
+
+int inflate_size(hnd_t handle)
+{
+	y4m_input_t *h             = handle;
+	fakefile_real_frame_count = get_frame_total_y4m(handle);
+	fakefile_header_size = h->seq_header_len;
+	fakefile_frame_size = (3*(h->width*h->height)/2+h->frame_header_len);
+	inflated_buffer_size += 261632UL * fakefile_frame_size;
+}
+
 
 int read_frame_y4m( x264_picture_t *p_pic, hnd_t handle, int i_frame )
 {
