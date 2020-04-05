@@ -5,6 +5,12 @@
 #include "nr_routines.h"
 #include "HJM_type.h"
 
+#ifdef SHEN_GC
+#include "gc.h"
+#define malloc GC_MALLOC
+#define free(x) ;
+#endif
+
 #define SWAP(a,b) {temp=(a);(a)=(b);(b)=temp;}
 
 

@@ -4,6 +4,9 @@
 //Collaborator: Mikhail Smelyanskiy, Jike Chong, Intel
 //Modified by Christian Bienia for the PARSEC Benchmark Suite
 
+#include <unistd.h>
+#include <sys/shm.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -14,6 +17,11 @@
 #include "HJM_Securities.h"
 #include "HJM_type.h"
 
+#ifdef SHEN_GC
+#include "gc.h"
+#define malloc GC_MALLOC
+#define free(x) ;
+#endif
 
 #ifdef ENABLE_THREADS
 
@@ -95,7 +103,7 @@ static void *print_progress(void *arg) {
 
   while (1) {
     uint64_t total = 0;
-    for (int i = 0; i < nThreads; i++) total += count[i];
+    for (int i = 0; i < nThreads; i++) total += count[i * 8];
     auto now = std::chrono::high_resolution_clock::now();
     auto elapsedMicros = std::chrono::duration_cast<std::chrono::microseconds>(now - last_time).count();
 
@@ -141,7 +149,7 @@ void * worker(void *arg){
        assert(iSuccess == 1);
        swaptions[i].dSimSwaptionMeanPrice = pdSwaptionPrice[0];
        swaptions[i].dSimSwaptionStdError = pdSwaptionPrice[1];  
-       count[tid]++;
+       count[tid * 8]++;
 #if SHENANGO
        pthread_yield();
 #endif
@@ -289,7 +297,19 @@ int main(int argc, char *argv[])
 	  (parm *)memory_parm.allocate(sizeof(parm)*nSwaptions, NULL);
 #else
 	  (parm *)malloc(sizeof(parm)*nSwaptions);
-    count = (uint64_t*)malloc(sizeof(uint64_t) * nThreads);
+    key_t key;
+    char *shmkey = getenv("SHMKEY");
+    if (!shmkey) {
+      key = 0x123;
+      fprintf(stderr, "warning! using default shm key\n");
+    } else {
+      key = atoi(shmkey);
+    }
+    int shmid = shmget(key, sizeof(uint64_t) * nThreads * 8,
+                   0666 | IPC_CREAT);
+    assert(shmid != -1);
+    count = (uint64_t *)shmat(shmid, 0, 0);
+    assert(count);
 #endif
 
         int k;

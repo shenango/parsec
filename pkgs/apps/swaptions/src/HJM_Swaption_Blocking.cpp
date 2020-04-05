@@ -86,6 +86,10 @@ int HJM_Swaption_Blocking(FTYPE *pdSwaptionPrice, //Output vector that will stor
   FTYPE *pdSwapPayoffs;			  //vector to store swap payoffs
 
   
+  FTYPE **pdZ = dmatrix(0, iFactors-1, 0, iN*BLOCKSIZE -1);
+  FTYPE **randZ = dmatrix(0, iFactors-1, 0, iN*BLOCKSIZE -1);
+  FTYPE *pdexpRes = dvector(0,(iN-1)*BLOCKSIZE-1);
+
   int iSwapStartTimeIndex;
   int iSwapTimePoints;
   FTYPE dSwapVectorYears;
@@ -149,7 +153,7 @@ int HJM_Swaption_Blocking(FTYPE *pdSwaptionPrice, //Output vector that will stor
   //Simulations begin:
   for (l=0;l<=lTrials-1;l+=BLOCKSIZE) {
       //For each trial a new HJM Path is generated
-      iSuccess = HJM_SimPath_Forward_Blocking(ppdHJMPath, iN, iFactors, dYears, pdForward, pdTotalDrift,ppdFactors, &iRndSeed, BLOCKSIZE); /* GC: 51% of the time goes here */
+      iSuccess = HJM_SimPath_Forward_Blocking(ppdHJMPath, iN, iFactors, dYears, pdForward, pdTotalDrift,ppdFactors, &iRndSeed, BLOCKSIZE, pdZ, randZ); /* GC: 51% of the time goes here */
        if (iSuccess!=1)
   goto clean_up;
       
@@ -160,7 +164,7 @@ int HJM_Swaption_Blocking(FTYPE *pdSwaptionPrice, //Output vector that will stor
 	  pdDiscountingRatePath[BLOCKSIZE*i + b] = ppdHJMPath[i][0 + b];
 	}
       }
-      iSuccess = Discount_Factors_Blocking(pdPayoffDiscountFactors, iN, dYears, pdDiscountingRatePath, BLOCKSIZE); /* 15% of the time goes here */
+      iSuccess = Discount_Factors_Blocking(pdPayoffDiscountFactors, iN, dYears, pdDiscountingRatePath, BLOCKSIZE, pdexpRes); /* 15% of the time goes here */
 
      if (iSuccess!=1)
   goto clean_up;
@@ -172,7 +176,7 @@ int HJM_Swaption_Blocking(FTYPE *pdSwaptionPrice, //Output vector that will stor
 	    ppdHJMPath[iSwapStartTimeIndex][i*BLOCKSIZE + b];
 	}
       }
-      iSuccess = Discount_Factors_Blocking(pdSwapDiscountFactors, iSwapVectorLength, dSwapVectorYears, pdSwapRatePath, BLOCKSIZE);
+      iSuccess = Discount_Factors_Blocking(pdSwapDiscountFactors, iSwapVectorLength, dSwapVectorYears, pdSwapRatePath, BLOCKSIZE, pdexpRes);
       if (iSuccess!=1)
   goto clean_up;
 
@@ -209,6 +213,10 @@ int HJM_Swaption_Blocking(FTYPE *pdSwaptionPrice, //Output vector that will stor
   goto clean_up;
 
 clean_up:
+
+  free_dmatrix(pdZ, 0, iFactors-1, 0, iN*BLOCKSIZE -1);
+  free_dmatrix(randZ, 0, iFactors-1, 0, iN*BLOCKSIZE -1);
+  free_dvector(pdexpRes, 0,(iN-1)*BLOCKSIZE-1);
 
   free_dvector(pdTotalDrift, 0, iN-2);
   free_dvector(pdSwapPayoffs, 0, iSwapVectorLength - 1);

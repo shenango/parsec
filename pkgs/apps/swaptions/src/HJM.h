@@ -16,10 +16,10 @@ int Discount_Factors_opt(FTYPE *pdDiscountFactors, int iN, FTYPE dYears, FTYPE *
 int HJM_SimPath_Forward_Blocking_SSE(FTYPE **ppdHJMPath, int iN, int iFactors, FTYPE dYears, FTYPE *pdForward, FTYPE *pdTotalDrift,
 			    FTYPE **ppdFactors, long *lRndSeed, int BLOCKSIZE);
 int HJM_SimPath_Forward_Blocking(FTYPE **ppdHJMPath, int iN, int iFactors, FTYPE dYears, FTYPE *pdForward, FTYPE *pdTotalDrift,
-			    FTYPE **ppdFactors, long *lRndSeed, int BLOCKSIZE);
+			    FTYPE **ppdFactors, long *lRndSeed, int BLOCKSIZE,  FTYPE **pdZ, FTYPE **randZ);
 
 
-int Discount_Factors_Blocking(FTYPE *pdDiscountFactors, int iN, FTYPE dYears, FTYPE *pdRatePath, int BLOCKSIZE);
+int Discount_Factors_Blocking(FTYPE *pdDiscountFactors, int iN, FTYPE dYears, FTYPE *pdRatePath, int BLOCKSIZE, FTYPE *pdexpRes);
 int Discount_Factors_Blocking_SSE(FTYPE *pdDiscountFactors, int iN, FTYPE dYears, FTYPE *pdRatePath, int BLOCKSIZE);
 
 

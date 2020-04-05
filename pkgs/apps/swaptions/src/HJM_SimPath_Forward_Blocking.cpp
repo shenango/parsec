@@ -78,22 +78,17 @@ int HJM_SimPath_Forward_Blocking(FTYPE **ppdHJMPath,	//Matrix that stores genera
 				 FTYPE *pdTotalDrift,	//Vector containing total drift corrections for different maturities
 				 FTYPE **ppdFactors,	//Factor volatilities
 				 long *lRndSeed,			//Random number seed
-				 int BLOCKSIZE)
+				 int BLOCKSIZE,  FTYPE **pdZ, FTYPE **randZ)
 {	
 //This function computes and stores an HJM Path for given inputs
 
 	int iSuccess = 0;
 	int i,j,l; //looping variables
-	FTYPE **pdZ; //vector to store random normals
-	FTYPE **randZ; //vector to store random normals
 	FTYPE dTotalShock; //total shock by which the forward curve is hit at (t, T-t)
 	FTYPE ddelt, sqrt_ddelt; //length of time steps	
 
 	ddelt = (FTYPE)(dYears/iN);
 	sqrt_ddelt = sqrt(ddelt);
-
-	pdZ   = dmatrix(0, iFactors-1, 0, iN*BLOCKSIZE -1); //assigning memory
-	randZ = dmatrix(0, iFactors-1, 0, iN*BLOCKSIZE -1); //assigning memory
 
 	// =====================================================
 	// t=0 forward curve stored iN first row of ppdHJMPath
@@ -158,8 +153,6 @@ int HJM_SimPath_Forward_Blocking(FTYPE **ppdHJMPath,	//Matrix that stores genera
 	} // end Blocks
 	// -----------------------------------------------------
 
-	free_dmatrix(pdZ, 0, iFactors -1, 0, iN*BLOCKSIZE -1);
-	free_dmatrix(randZ, 0, iFactors -1, 0, iN*BLOCKSIZE -1);
 	iSuccess = 1;
 	return iSuccess;
 }

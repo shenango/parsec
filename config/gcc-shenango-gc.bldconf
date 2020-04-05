@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# gcc-shenango.bldconf - configuration file for PARSEC
+
+source ${PARSECDIR}/config/gcc-shenango.bldconf
+
+if [[ -z "$GCDIR" ]]; then
+    echo "Must provide GCDIR in environment"
+    exit 1
+fi
+
+SHEN_LIBS_CXX="${SHEN_LIBS_CXX} ${GCDIR}/lib/libgc.a"
+SHEN_LIBS="${SHEN_LIBS} ${GCDIR}/lib/libgc.a"
+SHEN_CFLAGS="${SHEN_CFLAGS} -DSHEN_GC -I${GCDIR}/include/"
+SHEN_CXXFLAGS="${SHEN_CXXFLAGS} -DSHEN_GC -I${GCDIR}/include/"
