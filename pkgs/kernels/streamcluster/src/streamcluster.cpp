@@ -16,6 +16,9 @@
 #include <sys/resource.h>
 #include <limits.h>
 
+#include <unistd.h>
+#include <sys/shm.h>
+
 #ifdef ENABLE_THREADS
 #include <pthread.h>
 #include "parsec_barrier.hpp"
@@ -38,7 +41,7 @@ using namespace tbb;
 
 #include <thread>
 #include <chrono>
-uint64_t count_prog[256 * 8];
+uint64_t *count_prog;
 
 using namespace std;
 
@@ -2030,6 +2033,20 @@ int main(int argc, char **argv)
   tbb::task_scheduler_init init(nproc);
 #endif
 
+
+  key_t key;
+  char *shmkey = getenv("SHMKEY");
+  if (!shmkey) {
+    key = 0x123;
+    fprintf(stderr, "warning! using default shm key\n");
+  } else {
+    key = atoi(shmkey);
+  }
+  int shmid = shmget(key, sizeof(uint64_t) * nproc * 8,
+                 0666 | IPC_CREAT);
+  assert(shmid != -1);
+  count_prog = (uint64_t *)shmat(shmid, 0, 0);
+  assert(count_prog);
 
   auto progress_th = std::thread([&] {
   uint64_t last_total = 0;
