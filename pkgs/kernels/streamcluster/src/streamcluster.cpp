@@ -2043,7 +2043,7 @@ int main(int argc, char **argv)
     key = atoi(shmkey);
   }
   int shmid = shmget(key, sizeof(uint64_t) * nproc * 8,
-                 0666 | IPC_CREAT);
+                 0744 | IPC_CREAT);
   assert(shmid != -1);
   count_prog = (uint64_t *)shmat(shmid, 0, 0);
   assert(count_prog);
