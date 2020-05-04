@@ -47,6 +47,10 @@
 #include <hooks.h>
 #endif
 
+#include <unistd.h>
+#include <sys/shm.h>
+
+
 uint8_t *mux_buffer = NULL;
 int mux_buffer_size = 0;
 
@@ -803,21 +807,21 @@ static int  Encode_frame( x264_t *h, hnd_t hout, x264_picture_t *pic )
     return i_file;
 }
 
-static volatile uint64_t frame_count;
+// static volatile uint64_t *frame_count;
 
-static void frame_rate_printer(void)
-{
-    uint64_t last_total = 0;
-    uint64_t last_usec = x264_mdate();
-    while (1) {
-        sleep(1);
-        uint64_t now = x264_mdate();
-        uint64_t total = frame_count;
-        fprintf(stderr, "frame rate: %ld\n", (total - last_total) / ((now - last_usec) / 1000000.0));
-        last_usec = now;
-        last_total = total;
-    }
-}
+// static void frame_rate_printer(void)
+// {
+//     uint64_t last_total = 0;
+//     uint64_t last_usec = x264_mdate();
+//     while (1) {
+//         sleep(1);
+//         uint64_t now = x264_mdate();
+//         uint64_t total = frame_count;
+//         fprintf(stderr, "frame rate: %ld\n", (total - last_total) / ((now - last_usec) / 1000000.0));
+//         last_usec = now;
+//         last_total = total;
+//     }
+// }
 
 static int  Encode( x264_param_t *param, cli_opt_t *opt )
 {
@@ -857,8 +861,22 @@ static int  Encode( x264_param_t *param, cli_opt_t *opt )
     /* Create a new pic */
     x264_picture_alloc( &pic, X264_CSP_I420, param->i_width, param->i_height );
 
-    pthread_t progtid;
-    pthread_create(&progtid, NULL, frame_rate_printer, NULL);
+    char *shmkey = getenv("SHMKEY");
+    key_t key;
+    if (!shmkey) {
+      key = 0x123;
+      fprintf(stderr, "warning! using default shm key\n");
+    } else {
+      key = atoi(shmkey);
+    }
+    int shmid = shmget(key, sizeof(uint64_t) * 1 * 8,
+                   0666 | IPC_CREAT);
+    assert(shmid != -1);
+    volatile uint64_t *frame_count = (uint64_t *)shmat(shmid, 0, 0);
+    assert(frame_count);
+
+    uint64_t local_frame_count = 0;
+
 
     while (1) {
 
@@ -889,7 +907,7 @@ static int  Encode( x264_param_t *param, cli_opt_t *opt )
         i_file += Encode_frame( h, opt->hout, &pic );
 
         i_frame++;
-        frame_count++;
+        *frame_count = ++local_frame_count;
         sched_yield();
 
         /* update status line (up to 1000 times per input file) */
