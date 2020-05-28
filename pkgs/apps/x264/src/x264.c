@@ -807,21 +807,22 @@ static int  Encode_frame( x264_t *h, hnd_t hout, x264_picture_t *pic )
     return i_file;
 }
 
-// static volatile uint64_t *frame_count;
+static volatile uint64_t *frame_count;
 
-// static void frame_rate_printer(void)
-// {
-//     uint64_t last_total = 0;
-//     uint64_t last_usec = x264_mdate();
-//     while (1) {
-//         sleep(1);
-//         uint64_t now = x264_mdate();
-//         uint64_t total = frame_count;
-//         fprintf(stderr, "frame rate: %ld\n", (total - last_total) / ((now - last_usec) / 1000000.0));
-//         last_usec = now;
-//         last_total = total;
-//     }
-// }
+static void frame_rate_printer(void)
+ {
+	return;
+     uint64_t last_total = 0;
+     uint64_t last_usec = x264_mdate();
+     while (1) {
+         sleep(1);
+         uint64_t now = x264_mdate();
+         uint64_t total = *frame_count;
+         fprintf(stderr, "frame rate: %ld\n", (total - last_total) / ((now - last_usec) / 1000000.0));
+         last_usec = now;
+         last_total = total;
+     }
+ }
 
 static int  Encode( x264_param_t *param, cli_opt_t *opt )
 {
@@ -870,12 +871,14 @@ static int  Encode( x264_param_t *param, cli_opt_t *opt )
       key = atoi(shmkey);
     }
     int shmid = shmget(key, sizeof(uint64_t) * 1 * 8,
-                   0666 | IPC_CREAT);
+                   0777 | IPC_CREAT);
     assert(shmid != -1);
-    volatile uint64_t *frame_count = (uint64_t *)shmat(shmid, 0, 0);
+    frame_count = (uint64_t *)shmat(shmid, 0, 0);
     assert(frame_count);
 
     uint64_t local_frame_count = 0;
+	pthread_t ptid;
+	pthread_create(&ptid, NULL, frame_rate_printer, NULL);
 
 
     while (1) {
