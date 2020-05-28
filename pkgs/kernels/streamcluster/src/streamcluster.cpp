@@ -1075,6 +1075,7 @@ double pgain(long x, Points *points, double z, long int *numcenters, int pid, pt
       int assign = points->p[i].assign;
       lower[center_table[assign]] += current_cost - x_cost;
     }
+    count_prog[pid * 8]++;
   }
 
 #ifdef ENABLE_THREADS
@@ -1165,8 +1166,6 @@ double pgain(long x, Points *points, double z, long int *numcenters, int pid, pt
     //    free(proc_number_of_centers_to_close);
   }
 
-
-  count_prog[pid * 8] += k2 - k1;
 
   return -gl_cost_of_opening_x;
 }
@@ -2051,7 +2050,7 @@ int main(int argc, char **argv)
   auto progress_th = std::thread([&] {
   uint64_t last_total = 0;
   auto last_time = std::chrono::high_resolution_clock::now();
-
+	return;
   while (1) {
     uint64_t total = 0;
     for (int i = 0; i < nproc; i++) total += count_prog[i * 8];
