@@ -1380,21 +1380,7 @@ void Encode(config_t * _conf) {
     exit(1);
   }
   int threads_per_queue;
-  for(i=0; i<nqueues; i++) {
-    if (i < nqueues -1 || conf->nthreads %MAX_THREADS_PER_QUEUE == 0) {
-      //all but last queue
-      threads_per_queue = MAX_THREADS_PER_QUEUE;
-    } else {
-      //remaining threads work on last queue
-      threads_per_queue = conf->nthreads %MAX_THREADS_PER_QUEUE;
-    }
 
-    //call queue_init with threads_per_queue
-    queue_init(&deduplicate_que[i], QUEUE_SIZE, threads_per_queue);
-    queue_init(&refine_que[i], QUEUE_SIZE, 1);
-    queue_init(&reorder_que[i], QUEUE_SIZE, threads_per_queue);
-    queue_init(&compress_que[i], QUEUE_SIZE, threads_per_queue);
-  }
 #else
   struct thread_args generic_args;
 #endif //ENABLE_PTHREADS
@@ -1457,8 +1443,26 @@ void Encode(config_t * _conf) {
     generic_args.input_file.buffer = preloading_buffer;
 #endif //ENABLE_PTHREADS
   }
+top:
 
 #ifdef ENABLE_PTHREADS
+  for(i=0; i<nqueues; i++) {
+    if (i < nqueues -1 || conf->nthreads %MAX_THREADS_PER_QUEUE == 0) {
+      //all but last queue
+      threads_per_queue = MAX_THREADS_PER_QUEUE;
+    } else {
+      //remaining threads work on last queue
+      threads_per_queue = conf->nthreads %MAX_THREADS_PER_QUEUE;
+    }
+
+    //call queue_init with threads_per_queue
+    queue_init(&deduplicate_que[i], QUEUE_SIZE, threads_per_queue);
+    queue_init(&refine_que[i], QUEUE_SIZE, 1);
+    queue_init(&reorder_que[i], QUEUE_SIZE, threads_per_queue);
+    queue_init(&compress_que[i], QUEUE_SIZE, threads_per_queue);
+  }
+
+  
   /* Variables for 3 thread pools and 2 pipeline stage threads.
    * The first and the last stage are serial (mostly I/O).
    */
@@ -1474,7 +1478,7 @@ void Encode(config_t * _conf) {
 #ifdef ENABLE_PARSEC_HOOKS
     __parsec_roi_begin();
 #endif
-
+//while (1) {
   //thread for first pipeline stage (input)
   dedup_thread_create(&threads_process, NULL, Fragment, &data_process_args);
 
@@ -1519,7 +1523,8 @@ void Encode(config_t * _conf) {
   for (i = 0; i < conf->nthreads; i ++)
     dedup_thread_join(threads_compress[i], (void **)&threads_compress_rv[i]);
   dedup_thread_join(threads_send, NULL);
-
+//}
+goto top;
 #ifdef ENABLE_PARSEC_HOOKS
   __parsec_roi_end();
 #endif
