@@ -97,6 +97,7 @@ struct Worker {
 static uint64_t *count;
 
 static void *print_progress(void *arg) {
+return 0;
   assert(count);
   uint64_t last_total = 0;
   auto last_time = std::chrono::high_resolution_clock::now();
@@ -306,7 +307,7 @@ int main(int argc, char *argv[])
       key = atoi(shmkey);
     }
     int shmid = shmget(key, sizeof(uint64_t) * nThreads * 8,
-                   0666 | IPC_CREAT);
+                   0777 | IPC_CREAT);
     assert(shmid != -1);
     count = (uint64_t *)shmat(shmid, 0, 0);
     assert(count);
