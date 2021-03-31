@@ -35,5 +35,5 @@ build_env="MAKEFLAGS=-j PATH=\"${PARSECDIR}/pkgs/tools/yasm/inst/${PARSECPLAT}/b
 build_inplace="TRUE"
 
 # Arguments to pass to the configure script, if it exists
-build_conf="--enable-pthread --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"${CFLAGS}\" --extra-ldflags=\"-no-pie ${LDFLAGS} ${LIBS}\""
+build_conf="--enable-pthread --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"${CFLAGS} -fno-aggressive-loop-optimizations\" --extra-ldflags=\"-no-pie ${LDFLAGS} ${LIBS}\""
 
